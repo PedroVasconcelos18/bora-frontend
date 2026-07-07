@@ -12,6 +12,9 @@ import { TabBar } from '../components/TabBar';
 import { ToastContainer } from '../components/Toast';
 import { AppBar } from '../components/AppBar';
 
+// sessionStorage key used to persist invite tokens across the auth redirect (Pitfall 4)
+const PENDING_INVITE_KEY = 'pendingInviteToken';
+
 const queryClient = new QueryClient();
 
 export const Route = createRootRoute({
@@ -55,6 +58,14 @@ function AppWithAuth() {
 
     if (data?.user) {
       setUser(data.user);
+
+      // After successful auth, check for a pending invite token and resume the accept flow.
+      // The token was saved by /invites/$token before redirecting to /signup or /login (Pitfall 4).
+      const pendingToken = sessionStorage.getItem(PENDING_INVITE_KEY);
+      if (pendingToken) {
+        sessionStorage.removeItem(PENDING_INVITE_KEY);
+        void navigate({ to: '/invites/$token', params: { token: pendingToken } });
+      }
     } else {
       clearUser();
       const currentPath = routerState.location.pathname;
