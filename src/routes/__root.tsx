@@ -29,8 +29,10 @@ function Root() {
   );
 }
 
-// Public routes that do not require authentication
-const PUBLIC_ROUTES = ['/login', '/signup'];
+// Public routes that do not require authentication.
+// '/invites' is included so a logged-out invitee reaches the invite screen
+// before any guard redirect (GAP 2 fix — startsWith matching covers /invites/$token).
+const PUBLIC_ROUTES = ['/login', '/signup', '/invites'];
 
 function AppWithAuth() {
   const navigate = useNavigate();
@@ -71,6 +73,18 @@ function AppWithAuth() {
       const currentPath = routerState.location.pathname;
       const isPublic = PUBLIC_ROUTES.some((r) => currentPath.startsWith(r));
       if (!isPublic) {
+        // Defensive stash: if the guard would redirect a logged-out user away from an
+        // /invites path, save the token first so it survives the auth redirect (GAP 2 / Pitfall 4).
+        // '/invites' is now public so this normally won't fire for invite paths, but belt-and-
+        // suspenders: any future guard change cannot silently lose the invite token.
+        // pathname.split('/') for '/invites/$token' → ['', 'invites', '$token'] → index [2] = token.
+        // A bare '/invites' (no token segment) yields undefined at [2] → stash nothing.
+        if (currentPath.startsWith('/invites')) {
+          const inviteToken = currentPath.split('/')[2];
+          if (inviteToken) {
+            sessionStorage.setItem(PENDING_INVITE_KEY, inviteToken);
+          }
+        }
         void navigate({ to: '/login' });
       }
     }
