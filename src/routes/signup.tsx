@@ -7,6 +7,7 @@ import { apiClient } from '../api/client';
 import { useAuthStore } from '../stores/auth.store';
 import { FormField } from '../components/FormField';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 
 const signupSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório.'),
@@ -204,32 +205,7 @@ function SignupPage() {
       </p>
 
       {/* "Não é aposta" disclaimer footer (PROF-02 / D-13) */}
-      <NotBetDisclaimer />
+      <DisclaimerFooter />
     </section>
-  );
-}
-
-function NotBetDisclaimer() {
-  return (
-    <div
-      style={{
-        marginTop: 24,
-        background: 'var(--ink)',
-        color: 'var(--paper)',
-        borderRadius: 14,
-        padding: '14px 16px',
-        fontSize: '0.82rem',
-        lineHeight: 1.5,
-      }}
-    >
-      O{' '}
-      <strong style={{ color: 'var(--green-bright)', fontFamily: '"Baloo 2"' }}>
-        Bora
-      </strong>{' '}
-      é uma plataforma de gerenciamento de desafios de hábito entre amigos, feita pra estimular
-      comportamentos saudáveis.{' '}
-      <strong style={{ color: 'var(--green-bright)' }}>Não é aposta nem bolão</strong>: a
-      colaboração funciona como incentivo e volta pra quem mantém o hábito combinado.
-    </div>
   );
 }

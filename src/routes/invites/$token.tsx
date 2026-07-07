@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { InviteCard } from '../../components/InviteCard';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { showToast } from '../../components/Toast';
+import { DisclaimerFooter } from '../../components/DisclaimerFooter';
 
 export const Route = createFileRoute('/invites/$token')({
   component: InvitePage,
@@ -241,6 +242,8 @@ function InvitePage() {
         >
           Já tenho conta — entrar
         </button>
+        {/* "Não é aposta" disclaimer footer (PROF-02 / D-13) */}
+        <DisclaimerFooter />
       </section>
     );
   }
@@ -313,6 +316,8 @@ function InvitePage() {
           Aceitar convite
         </PrimaryButton>
       </div>
+      {/* "Não é aposta" disclaimer footer (PROF-02 / D-13) */}
+      <DisclaimerFooter />
     </section>
   );
 }
