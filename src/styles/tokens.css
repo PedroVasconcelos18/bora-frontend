@@ -1,0 +1,60 @@
+/* Design tokens ported verbatim from referencia.html :root — DO NOT modify values without updating referencia.html */
+:root {
+  /* Surfaces */
+  --paper:      #FAF7F0;   /* dominant background / app shell */
+  --card:       #FFFFFF;   /* card / input backgrounds */
+  --mint:       #DFF6E8;   /* accent surface — pill backgrounds, summary boxes, active tab */
+  --mint-deep:  #B8EBCE;   /* mint borders, disabled button shadow, dashed borders */
+
+  /* Brand greens */
+  --green-bright: #2BD86B; /* primary CTA background, accent elements, active avatar */
+  --green:        #12B85C; /* ranking bar fill, alt-link text, border hover accent */
+  --green-ink:    #0B3B22; /* text on green surfaces, headings, logo */
+
+  /* Text */
+  --ink:   #16241C;  /* default body text */
+  --muted: #5C6B61;  /* secondary labels, meta text, back button */
+
+  /* Semantic */
+  --coral:  #FF6B4A;  /* destructive / error states, focus ring */
+  --lemon:  #FFC83D;  /* future use — not required in Phase 1 */
+
+  /* Structure */
+  --line:      #E7E2D6;                              /* borders, dividers */
+  --shadow:    0 18px 40px -22px rgba(11,59,34,.42); /* card shadow (large) */
+  --shadow-sm: 0 10px 26px -16px rgba(11,59,34,.45); /* card shadow (hover) */
+}
+
+/* Page background (outside the 440px device shell) */
+body {
+  background: #EFE8DA;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  color: var(--ink);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+h1, h2, h3 {
+  font-family: "Baloo 2", system-ui, sans-serif;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 440px device shell — mobile-first container */
+.device {
+  max-width: 440px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--paper);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 60px -20px rgba(0,0,0,.25);
+}
