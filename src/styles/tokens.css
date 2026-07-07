@@ -47,6 +47,19 @@ h1, h2, h3 {
   padding: 0;
 }
 
+/* Spinner animation (used by loading states) */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Reduced motion — disable all animations and transitions */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* 440px device shell — mobile-first container */
 .device {
   max-width: 440px;
