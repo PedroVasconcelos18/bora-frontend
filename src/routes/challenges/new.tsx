@@ -158,7 +158,7 @@ function NewChallengePage() {
         )}
 
         <PrimaryButton
-          onClick={() => void navigate({ to: '/' })}
+          onClick={() => void navigate({ to: '/home' })}
         >
           Ver meus desafios
         </PrimaryButton>

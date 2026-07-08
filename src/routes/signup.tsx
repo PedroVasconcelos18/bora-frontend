@@ -30,7 +30,7 @@ function SignupPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      void navigate({ to: '/' });
+      void navigate({ to: '/home' });
     }
   }, [user, navigate]);
 
@@ -52,7 +52,7 @@ function SignupPage() {
       if (res.status === 201) {
         const body = (await res.json()) as { user: { id: string; email: string; name: string } };
         setUser(body.user);
-        void navigate({ to: '/' });
+        void navigate({ to: '/home' });
       } else if (res.status === 409) {
         setServerError('Este e-mail já tem uma conta. Faça login.');
       } else if (res.status === 400) {

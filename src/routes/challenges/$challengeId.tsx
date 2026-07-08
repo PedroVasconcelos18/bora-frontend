@@ -91,7 +91,7 @@ function ChallengeDetailPage() {
       >
         <div style={{ fontSize: '2rem', marginBottom: 12 }}>😕</div>
         <p style={{ color: 'var(--muted)', fontWeight: 600 }}>Desafio não encontrado.</p>
-        <Link to="/" style={{ color: 'var(--green)', fontWeight: 700, marginTop: 16, textDecoration: 'underline' }}>
+        <Link to="/home" style={{ color: 'var(--green)', fontWeight: 700, marginTop: 16, textDecoration: 'underline' }}>
           Voltar
         </Link>
       </section>
@@ -116,7 +116,7 @@ function ChallengeDetailPage() {
     >
       {/* Back button */}
       <Link
-        to="/"
+        to="/home"
         style={{
           background: 'none',
           border: 'none',

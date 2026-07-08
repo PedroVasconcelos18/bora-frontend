@@ -29,7 +29,7 @@ function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      void navigate({ to: '/' });
+      void navigate({ to: '/home' });
     }
   }, [user, navigate]);
 
@@ -60,7 +60,7 @@ function LoginPage() {
       if (res.ok) {
         const body = (await res.json()) as { user: { id: string; email: string; name: string } };
         setUser(body.user);
-        void navigate({ to: '/' });
+        void navigate({ to: '/home' });
       } else if (res.status === 401) {
         setServerError('E-mail ou senha incorretos.');
       } else {

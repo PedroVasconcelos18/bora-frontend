@@ -29,10 +29,10 @@ export function TabBar() {
     >
       {/* Desafios tab */}
       <button
-        onClick={() => void navigate({ to: '/' })}
+        onClick={() => void navigate({ to: '/home' })}
         style={{
           flex: 1,
-          background: isActive('/') && pathname === '/' ? 'var(--mint)' : 'none',
+          background: pathname === '/home' ? 'var(--mint)' : 'none',
           border: 'none',
           cursor: 'pointer',
           padding: 8,
@@ -41,7 +41,7 @@ export function TabBar() {
           flexDirection: 'column',
           alignItems: 'center',
           gap: 3,
-          color: isActive('/') && pathname === '/' ? 'var(--green-ink)' : 'var(--muted)',
+          color: pathname === '/home' ? 'var(--green-ink)' : 'var(--muted)',
           fontWeight: 700,
           fontSize: '0.72rem',
           transition: 'color 0.15s, background 0.15s',
