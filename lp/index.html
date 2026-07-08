@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bora — desafios de hábito entre amigos</title>
+<meta name="description" content="O Bora é a plataforma onde sua turma combina um hábito saudável, registra a evidência todo dia e se mantém firme. Colaboração via Pix, taxa fixa de R$ 10.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-in">
+    <a class="logo" href="/"><span class="spark">↑</span>Bora</a>
+    <nav class="nav-links">
+      <a href="#como">Como funciona</a>
+      <a href="#exemplos">Exemplos</a>
+      <a href="#transparencia">Transparência</a>
+      <a href="#perguntas">Perguntas</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-primary" href="/signup">Bora começar</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="reveal">
+      <span class="eyebrow"><span class="dot"></span>Desafios de hábito entre amigos</span>
+      <h1 class="hero-title">Bora encarar um desafio <span class="hl">juntos?
+        <svg viewBox="0 0 200 12" preserveAspectRatio="none"><path d="M2 8 Q50 2 100 6 T198 5" stroke="#2BD86B" stroke-width="5" fill="none" stroke-linecap="round"/></svg>
+      </span></h1>
+      <p class="hero-sub">Sua turma combina um hábito saudável, registra a evidência todo dia e se mantém firme — com a galera de olho. Quem segura a sequência leva a colaboração de todo mundo.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/signup">Criar meu desafio</a>
+        <a class="btn btn-ghost" href="#como">Ver como funciona</a>
+      </div>
+      <div class="trust">
+        <span class="pix">◆ Colaboração via Pix</span>
+        <span>Taxa fixa de R$ 10 por desafio</span>
+        <span>Sem mensalidade</span>
+      </div>
+    </div>
+
+    <div class="mock reveal">
+      <div class="blob"></div>
+      <div class="app-card">
+        <div class="ac-head">
+          <div>
+            <div class="ac-title">Quem vai mais à academia 🏋️</div>
+            <div class="ac-meta">12 dias · 5 amigos · colaboração R$ 50</div>
+          </div>
+          <span class="ac-badge"><span class="pulse"></span>No ar</span>
+        </div>
+        <div class="avatars">
+          <span class="av a">L</span><span class="av b">R</span><span class="av c">M</span><span class="av d">J</span><span class="av e">+1</span>
+        </div>
+        <div class="streak-label">Sequência da Manu</div>
+        <div class="streak" id="streak">
+          <span class="stamp ok">✓</span><span class="stamp ok">✓</span><span class="stamp ok">✓</span>
+          <span class="stamp ok">✓</span><span class="stamp no">✕</span><span class="stamp ok">✓</span>
+          <span class="stamp ok">✓</span><span class="stamp todo">?</span>
+        </div>
+        <div class="vote">
+          <div class="vote-q"><span class="thumb">📸</span>A evidência de hoje da Manu conta?</div>
+          <div class="vote-btns">
+            <button class="yes" onclick="vote(true)">Sim, valeu!</button>
+            <button class="no" onclick="vote(false)">Não rolou</button>
+          </div>
+          <div class="vote-result" id="voteResult"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MANIFESTO -->
+<section class="section" style="padding-top:30px;padding-bottom:60px">
+  <div class="strip reveal">
+    <span class="strip-eyebrow">Pra deixar claro</span>
+    <h2>Isto não é aposta. É a sua turma <span class="u">te puxando pra cima.</span></h2>
+    <p>O Bora é uma plataforma de gerenciamento de desafios entre amigos. Ninguém aposta contra ninguém: vocês combinam uma meta saudável e usam a colaboração como um empurrãozinho pra todo mundo se manter firme. O valor não vira lucro do app — ele volta inteiro pra quem manteve o hábito. A gente só cobra uma taxa fixa pra manter a casa de pé.</p>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section class="section" id="como" style="padding-top:50px">
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="kicker">Como funciona</span>
+      <h2>Do combinado ao "valeu, foi firme!"</h2>
+      <p>São cinco passos simples — e em cada um deles é a amizade que sustenta o hábito, não a sorte.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="num">1</div>
+        <h3>Combine o desafio</h3>
+        <p>Defina o tema (academia, sem álcool, água, leitura…), a duração e o valor da colaboração.</p>
+      </div>
+      <div class="step reveal">
+        <div class="num">2</div>
+        <h3>Convide a turma</h3>
+        <p>Chame os amigos por e-mail. Cada um entra fazendo a colaboração combinada via Pix.</p>
+      </div>
+      <div class="step reveal">
+        <div class="num">3</div>
+        <h3>Mostre que cumpriu</h3>
+        <p>Todo dia, envie uma foto de evidência de que você manteve o hábito do desafio.</p>
+      </div>
+      <div class="step reveal">
+        <div class="num">4</div>
+        <h3>A turma valida</h3>
+        <p>Voto simples, sim ou não. A maioria decide se a evidência do dia conta ou não.</p>
+      </div>
+      <div class="step reveal">
+        <div class="num">5</div>
+        <h3>Quem foi firme leva</h3>
+        <p>Quem manteve a sequência com mais evidências validadas recebe toda a colaboração via Pix, menos a taxa fixa de R$ 10.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- EXEMPLOS -->
+<section class="section" id="exemplos">
+  <div class="wrap">
+    <div class="ex-wrap reveal">
+      <div class="head" style="margin-bottom:18px">
+        <span class="kicker">Pra inspirar</span>
+        <h2>Que desafio a sua turma topa?</h2>
+        <p>Qualquer hábito saudável vira desafio. Alguns dos favoritos:</p>
+      </div>
+      <div class="chips">
+        <span class="chip"><span class="e">🏋️</span>Academia 4x na semana</span>
+        <span class="chip"><span class="e">🚭</span>30 dias sem álcool</span>
+        <span class="chip"><span class="e">💧</span>2L de água por dia</span>
+        <span class="chip"><span class="e">👟</span>8 mil passos diários</span>
+        <span class="chip"><span class="e">📚</span>20 min de leitura</span>
+        <span class="chip"><span class="e">🌙</span>Dormir antes da meia-noite</span>
+        <span class="chip"><span class="e">🥤</span>Sem refrigerante</span>
+        <span class="chip"><span class="e">🏃</span>Corrida no fim de semana</span>
+        <span class="chip"><span class="e">🧘</span>10 min de meditação</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRANSPARENCIA -->
+<section class="section" id="transparencia" style="padding-top:40px">
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="kicker">Transparência</span>
+      <h2>Onde o dinheiro entra e pra onde ele vai</h2>
+      <p>Tudo às claras. A colaboração é da turma, não do Bora.</p>
+    </div>
+    <div class="tcards">
+      <div class="tcard green reveal">
+        <div class="ic">◆</div>
+        <h3>Sempre via Pix</h3>
+        <p>A colaboração para entrar no desafio e o prêmio do vencedor acontecem por Pix. Rápido, direto e sem cartão.</p>
+      </div>
+      <div class="tcard coral reveal">
+        <div class="ic">🏷️</div>
+        <div class="big">R$ 10</div>
+        <h3 style="margin-top:6px">Taxa fixa por desafio</h3>
+        <p>Esse é o único valor que o Bora cobra — sempre fixo, na criação do desafio. Sem porcentagem sobre o prêmio.</p>
+      </div>
+      <div class="tcard lemon reveal">
+        <div class="ic">🏆</div>
+        <h3>O prêmio é da turma</h3>
+        <p>O prêmio é a soma das colaborações de todos. Vai inteiro pra quem se manteve mais firme — descontada só a taxa fixa.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="perguntas" style="padding-top:40px">
+  <div class="wrap">
+    <div class="head reveal" style="margin-left:auto;margin-right:auto;text-align:center">
+      <span class="kicker">Perguntas</span>
+      <h2>Tirando as dúvidas</h2>
+    </div>
+    <div class="faq">
+      <details class="reveal" open>
+        <summary>Então isso é uma aposta? <span class="plus">+</span></summary>
+        <p>Não. O Bora é uma plataforma de gerenciamento de desafios de hábito entre amigos. Ninguém aposta no resultado de ninguém: vocês combinam uma meta saudável e usam a colaboração como incentivo pra todo mundo se manter firme. O valor volta pra quem foi consistente, e o app não fica com nenhuma fatia do prêmio.</p>
+      </details>
+      <details class="reveal">
+        <summary>Como a evidência do dia é validada? <span class="plus">+</span></summary>
+        <p>Todo dia você envia uma foto comprovando que cumpriu o hábito do desafio. Os outros participantes votam sim ou não. Se a maioria votar que não conta, aquela evidência não é validada e não entra na sua sequência.</p>
+      </details>
+      <details class="reveal">
+        <summary>Quem ganha o desafio? <span class="plus">+</span></summary>
+        <p>Quem terminar o desafio com mais evidências validadas pela turma. Essa pessoa recebe toda a colaboração arrecadada por Pix, menos a taxa fixa de R$ 10 cobrada na criação do desafio.</p>
+      </details>
+      <details class="reveal">
+        <summary>Quanto custa pra usar? <span class="plus">+</span></summary>
+        <p>Só a taxa fixa de R$ 10 por desafio, paga na criação. O valor da colaboração pra entrar é definido pela própria turma — o Bora não cobra mensalidade nem porcentagem sobre o prêmio.</p>
+      </details>
+      <details class="reveal">
+        <summary>Como entro e como recebo? <span class="plus">+</span></summary>
+        <p>Você entra no desafio fazendo a colaboração combinada via Pix. Se vencer, o prêmio também cai na sua conta por Pix. Simples assim.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section" id="cta" style="padding-top:20px">
+  <div class="final reveal">
+    <h2>Bora firmar esse hábito?</h2>
+    <p>Junte a turma, combine o desafio e segure a sequência.</p>
+    <a class="btn btn-dark" href="/signup">Criar meu primeiro desafio</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-in">
+      <a class="logo" href="/"><span class="spark">↑</span>Bora</a>
+      <div class="foot-links">
+        <a href="#como">Como funciona</a>
+        <a href="#exemplos">Exemplos</a>
+        <a href="#transparencia">Transparência</a>
+        <a href="#perguntas">Perguntas</a>
+      </div>
+    </div>
+    <p class="foot-note">O Bora é uma plataforma de gerenciamento de desafios de hábito entre amigos, criada para estimular comportamentos saudáveis. Não é uma plataforma de apostas, bolão ou jogos de azar: as colaborações funcionam como incentivo entre os participantes e retornam a quem mantém o hábito combinado.</p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+
+</body>
+</html>
