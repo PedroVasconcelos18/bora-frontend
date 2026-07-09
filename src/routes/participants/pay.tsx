@@ -114,8 +114,26 @@ function PayPage() {
       return (await res.json()) as PaymentStatus;
     },
     enabled: !!charge?.participantId,
-    refetchInterval: 4000,
+    // Stop polling once the webhook has confirmed the payment (APPROVED) —
+    // there is nothing left to wait for from this screen's point of view.
+    refetchInterval: (query) => (query.state.data?.paymentStatus === 'APPROVED' ? false : 4000),
   });
+
+  const isChallengeActive = status?.challengeStatus === 'ACTIVE';
+  const navigatedToChallengeRef = useRef(false);
+
+  // When the paid participant is the one who filled the group (CHAL-06), the
+  // challenge auto-transitions to ACTIVE — surface that and hand off to the
+  // challenge detail screen instead of leaving the participant stuck here.
+  useEffect(() => {
+    if (!isChallengeActive || !challengeId || navigatedToChallengeRef.current) return;
+    navigatedToChallengeRef.current = true;
+    showToast('🚀 O desafio está no ar!');
+    const timer = setTimeout(() => {
+      void navigate({ to: '/challenges/$challengeId', params: { challengeId } });
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [isChallengeActive, challengeId, navigate]);
 
   if (!user) return null;
 
@@ -241,7 +259,11 @@ function PayPage() {
           >
             Pagamento confirmado!
           </h3>
-          <p style={{ color: 'var(--muted)', marginTop: 8 }}>Aguardando o restante da turma pagar...</p>
+          <p style={{ color: 'var(--muted)', marginTop: 8 }}>
+            {isChallengeActive
+              ? '🚀 O desafio está no ar! Te levando pro dia 1...'
+              : 'Aguardando o restante da turma pagar...'}
+          </p>
           {challengeId && (
             <div style={{ marginTop: 20 }}>
               <Link
