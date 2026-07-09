@@ -14,6 +14,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ParticipantsPayRouteImport } from './routes/participants/pay'
 import { Route as InvitesTokenRouteImport } from './routes/invites/$token'
 import { Route as ChallengesNewRouteImport } from './routes/challenges/new'
@@ -42,6 +43,11 @@ const HomeRoute = HomeRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ParticipantsPayRoute = ParticipantsPayRouteImport.update({
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/participants/pay': typeof ParticipantsPayRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/participants/pay': typeof ParticipantsPayRoute
+  '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/participants/pay': typeof ParticipantsPayRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/challenges/new'
     | '/invites/$token'
     | '/participants/pay'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/challenges/new'
     | '/invites/$token'
     | '/participants/pay'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/challenges/new'
     | '/invites/$token'
     | '/participants/pay'
+    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   ChallengesNewRoute: typeof ChallengesNewRoute
   InvitesTokenRoute: typeof InvitesTokenRoute
   ParticipantsPayRoute: typeof ParticipantsPayRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -182,6 +195,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/participants/pay': {
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChallengesNewRoute: ChallengesNewRoute,
   InvitesTokenRoute: InvitesTokenRoute,
   ParticipantsPayRoute: ParticipantsPayRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

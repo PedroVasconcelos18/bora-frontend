@@ -118,3 +118,25 @@ export const apiClient = {
       headers: { 'Content-Type': 'application/json' },
     }),
 };
+
+/**
+ * adminClient — a distinct, cookie-free client for the env-secret-gated
+ * /admin refund queue (D-11). Sends the operator's secret as an
+ * `X-Admin-Secret` header, NEVER as a URL query param (RESEARCH.md A5 — a
+ * query param would land in server access logs). Deliberately does NOT go
+ * through `fetchWithRefresh`: the admin gate is a shared secret, not the
+ * user's JWT/cookie session, so the 401-refresh-and-retry logic (which
+ * assumes an httpOnly cookie session) does not apply here.
+ */
+export function createAdminClient(secret: string) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Secret': secret,
+  };
+
+  return {
+    get: (path: string): Promise<Response> => fetch(`${API_URL}${path}`, { headers }),
+    patch: (path: string, body: unknown): Promise<Response> =>
+      fetch(`${API_URL}${path}`, { method: 'PATCH', headers, body: JSON.stringify(body) }),
+  };
+}

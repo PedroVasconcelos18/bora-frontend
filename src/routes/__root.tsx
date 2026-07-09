@@ -32,7 +32,13 @@ function Root() {
 // Public routes that do not require authentication.
 // '/invites' is included so a logged-out invitee reaches the invite screen
 // before any guard redirect (GAP 2 fix — startsWith matching covers /invites/$token).
-const PUBLIC_ROUTES = ['/login', '/signup', '/invites'];
+// '/admin' is included because it is gated by a distinct env-configured secret
+// (AdminGuard, D-11) rather than the user JWT session — an operator who is not
+// (or cannot be) logged in as an app user must still reach the secret-entry
+// screen instead of being bounced to /login (Rule 2 — missing critical
+// functionality, since /admin's whole point is to be usable independent of
+// any user session).
+const PUBLIC_ROUTES = ['/login', '/signup', '/invites', '/admin'];
 
 function AppWithAuth() {
   const navigate = useNavigate();
