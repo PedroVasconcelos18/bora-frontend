@@ -101,7 +101,12 @@ function HomePage() {
               platformFee={challenge.platformFee}
               status={challenge.status}
               participants={challenge.participants ?? []}
-              onClick={() => void navigate({ to: '/home' })} // placeholder until /challenges/$id route exists
+              onClick={() =>
+                void navigate({
+                  to: '/challenges/$challengeId',
+                  params: { challengeId: challenge.id },
+                })
+              }
             />
           ))}
         </div>
