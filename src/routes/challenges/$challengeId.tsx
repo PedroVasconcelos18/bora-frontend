@@ -1,10 +1,12 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useAuthStore } from '../../stores/auth.store';
 import { StatusPill } from '../../components/StatusPill';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { WaitingRoomList } from '../../components/WaitingRoomList';
+import { showToast } from '../../components/Toast';
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -30,10 +32,20 @@ interface ChallengeDetail {
   createdAt: string;
 }
 
+interface WaitingRoomStatus {
+  status: string;
+  deadline: string;
+  paidCount: number;
+  totalCount: number;
+  prize: string;
+  participants: { name: string; paid: boolean }[];
+}
+
 function ChallengeDetailPage() {
   const { challengeId } = Route.useParams();
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!user) {
@@ -51,6 +63,49 @@ function ChallengeDetailPage() {
     enabled: !!user,
     retry: false,
   });
+
+  // CHAL-05/D-13: nominal paid/pending list + live N-de-M + deadline + the
+  // live prize (D-03, pitfall M4 — never the client-computed all-participants
+  // estimate below, always the server value derived from the PAID count).
+  const { data: waitingRoom } = useQuery<WaitingRoomStatus>({
+    queryKey: ['waiting-room', challengeId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/challenges/${challengeId}/participants`);
+      if (!res.ok) throw new Error('waiting-room-error');
+      return (await res.json()) as WaitingRoomStatus;
+    },
+    enabled: !!challenge,
+  });
+
+  // D-09: creator-only cancellation, WAITING-only (guarded server-side too).
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.patch(`/challenges/${challengeId}/cancel`, {});
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(errBody.message ?? 'Erro ao cancelar o desafio. Tente novamente.');
+      }
+      return res.json() as Promise<{ status: string }>;
+    },
+    onSuccess: () => {
+      showToast('Desafio cancelado.');
+      void queryClient.invalidateQueries({ queryKey: ['challenge', challengeId] });
+      void queryClient.invalidateQueries({ queryKey: ['waiting-room', challengeId] });
+    },
+    onError: (err: Error) => {
+      showToast(err.message ?? 'Erro ao cancelar o desafio.');
+    },
+  });
+
+  const handleCancel = () => {
+    if (
+      window.confirm(
+        'Tem certeza que deseja cancelar este desafio? Quem já pagou entra na fila de reembolso e essa ação não pode ser desfeita.',
+      )
+    ) {
+      cancelMutation.mutate();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -102,13 +157,26 @@ function ChallengeDetailPage() {
   const collab = parseFloat(challenge.collabAmount);
   const fee = parseFloat(challenge.platformFee);
   const participantCount = challenge.participants.length;
-  // Prize = (participants × collab) - fee; minimum 0
-  const prize = Math.max(0, participantCount * collab - fee);
+  // D-03/pitfall M4: prefer the server-computed live prize (derived from the
+  // PAID count) once the waiting-room query has loaded; fall back to the
+  // all-participants estimate only while it's still loading, so this tile
+  // never disagrees with the waiting-room card's own prize figure.
+  const prize = waitingRoom
+    ? parseFloat(waitingRoom.prize)
+    : Math.max(0, participantCount * collab - fee);
   // D-06: works for both the creator and any invitee who already accepted —
   // both have a Participant row and hit the same "pagar minha entrada" endpoint.
   const myParticipant = user
     ? challenge.participants.find((p) => p.user.id === user.id)
     : undefined;
+  const isCreator = !!user && user.id === challenge.creatorId;
+  const formattedDeadline = waitingRoom
+    ? new Date(waitingRoom.deadline).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : null;
 
   return (
     <section
@@ -279,74 +347,18 @@ function ChallengeDetailPage() {
         </div>
       </div>
 
-      {/* Aguardando turma card — D-11: always shown in Phase 1 */}
-      <div
-        style={{
-          background: 'var(--card)',
-          border: '1px solid var(--line)',
-          borderRadius: 18,
-          padding: 18,
-          marginBottom: 16,
-        }}
-      >
-        <div
-          style={{
-            fontFamily: '"Baloo 2", system-ui, sans-serif',
-            fontWeight: 700,
-            fontSize: '1.1rem',
-            marginBottom: 13,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          ⏳ Status do desafio
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            color: 'var(--green-ink)',
-            fontWeight: 600,
-            padding: '6px 0',
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-block',
-              width: 22,
-              height: 22,
-              border: '3px solid var(--mint-deep)',
-              borderTopColor: 'var(--green)',
-              borderRadius: '50%',
-              animation: 'sp 0.8s linear infinite',
-              flexShrink: 0,
-            }}
-          />
-          <span>Aguardando pagamento dos participantes</span>
-        </div>
-        {myParticipant && !myParticipant.paidAt && challenge.status === 'WAITING' && (
-          <div style={{ marginTop: 12 }}>
-            <PrimaryButton
-              onClick={() =>
-                void navigate({ to: '/participants/pay', search: { challengeId: challenge.id } })
-              }
-            >
-              Pagar minha entrada
-            </PrimaryButton>
-          </div>
-        )}
-      </div>
-
-      {/* Participants list */}
-      {participantCount > 0 && (
+      {/* Waiting room (CHAL-05, D-13): nominal paid/pending list, visible to
+          ALL participants — the social-pressure engine — plus the live
+          "N de M pagaram" counter, the 3-day deadline, and the creator's
+          cancel action. Hidden once the challenge is no longer WAITING. */}
+      {challenge.status === 'WAITING' && (
         <div
           style={{
             background: 'var(--card)',
             border: '1px solid var(--line)',
             borderRadius: 18,
             padding: 18,
+            marginBottom: 16,
           }}
         >
           <div
@@ -360,66 +372,104 @@ function ChallengeDetailPage() {
               gap: 8,
             }}
           >
-            👥 Participantes ({participantCount})
+            ⏳ Aguardando turma
           </div>
-          {challenge.participants.map((p) => {
-            const initials = p.user.name
-              .split(' ')
-              .slice(0, 2)
-              .map((n) => n[0])
-              .join('')
-              .toUpperCase();
-            return (
+
+          {waitingRoom ? (
+            <>
               <div
-                key={p.id}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '8px 0',
-                  borderBottom: '1px solid var(--line)',
+                  color: 'var(--green-ink)',
+                  fontWeight: 700,
+                  fontSize: '0.95rem',
+                  marginBottom: 4,
                 }}
               >
+                {waitingRoom.paidCount} de {waitingRoom.totalCount} pagaram
+              </div>
+              {formattedDeadline && (
                 <div
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    background: 'var(--green)',
-                    display: 'grid',
-                    placeItems: 'center',
-                    color: '#fff',
-                    fontFamily: '"Baloo 2", system-ui, sans-serif',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    flexShrink: 0,
-                  }}
-                >
-                  {initials}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--ink)' }}>
-                    {p.user.name}
-                  </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--muted)', fontWeight: 600 }}>
-                    {p.user.email}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    padding: '4px 8px',
-                    borderRadius: 999,
-                    background: '#EEE9DD',
                     color: 'var(--muted)',
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
+                    marginBottom: 13,
                   }}
                 >
-                  Aguardando
-                </span>
-              </div>
-            );
-          })}
+                  Começa quando 3+ pagarem. Prazo: {formattedDeadline}
+                </div>
+              )}
+
+              {waitingRoom.participants.length > 0 && (
+                <WaitingRoomList participants={waitingRoom.participants} />
+              )}
+            </>
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                color: 'var(--green-ink)',
+                fontWeight: 600,
+                padding: '6px 0',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 22,
+                  height: 22,
+                  border: '3px solid var(--mint-deep)',
+                  borderTopColor: 'var(--green)',
+                  borderRadius: '50%',
+                  animation: 'sp 0.8s linear infinite',
+                  flexShrink: 0,
+                }}
+              />
+              <span>Carregando status do desafio...</span>
+            </div>
+          )}
+
+          {myParticipant && !myParticipant.paidAt && (
+            <div style={{ marginTop: 12 }}>
+              <PrimaryButton
+                onClick={() =>
+                  void navigate({ to: '/participants/pay', search: { challengeId: challenge.id } })
+                }
+              >
+                Pagar minha entrada
+              </PrimaryButton>
+            </div>
+          )}
+
+          {isCreator && (
+            <div style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={cancelMutation.isPending}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  fontFamily: '"Baloo 2", system-ui, sans-serif',
+                  fontWeight: 700,
+                  fontSize: '0.92rem',
+                  padding: '12px 20px',
+                  borderRadius: 16,
+                  border: '1px solid var(--coral)',
+                  background: 'transparent',
+                  color: 'var(--coral)',
+                  cursor: cancelMutation.isPending ? 'not-allowed' : 'pointer',
+                  opacity: cancelMutation.isPending ? 0.6 : 1,
+                }}
+              >
+                {cancelMutation.isPending ? 'Cancelando...' : 'Cancelar desafio'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </section>
