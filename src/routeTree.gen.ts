@@ -14,6 +14,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ParticipantsPayRouteImport } from './routes/participants/pay'
 import { Route as InvitesTokenRouteImport } from './routes/invites/$token'
 import { Route as ChallengesNewRouteImport } from './routes/challenges/new'
 import { Route as ChallengesChallengeIdRouteImport } from './routes/challenges/$challengeId'
@@ -43,6 +44,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParticipantsPayRoute = ParticipantsPayRouteImport.update({
+  id: '/participants/pay',
+  path: '/participants/pay',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InvitesTokenRoute = InvitesTokenRouteImport.update({
   id: '/invites/$token',
   path: '/invites/$token',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/challenges/$challengeId': typeof ChallengesChallengeIdRoute
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
+  '/participants/pay': typeof ParticipantsPayRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/challenges/$challengeId': typeof ChallengesChallengeIdRoute
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
+  '/participants/pay': typeof ParticipantsPayRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/challenges/$challengeId': typeof ChallengesChallengeIdRoute
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
+  '/participants/pay': typeof ParticipantsPayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/challenges/$challengeId'
     | '/challenges/new'
     | '/invites/$token'
+    | '/participants/pay'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/challenges/$challengeId'
     | '/challenges/new'
     | '/invites/$token'
+    | '/participants/pay'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/challenges/$challengeId'
     | '/challenges/new'
     | '/invites/$token'
+    | '/participants/pay'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +144,7 @@ export interface RootRouteChildren {
   ChallengesChallengeIdRoute: typeof ChallengesChallengeIdRoute
   ChallengesNewRoute: typeof ChallengesNewRoute
   InvitesTokenRoute: typeof InvitesTokenRoute
+  ParticipantsPayRoute: typeof ParticipantsPayRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/participants/pay': {
+      id: '/participants/pay'
+      path: '/participants/pay'
+      fullPath: '/participants/pay'
+      preLoaderRoute: typeof ParticipantsPayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invites/$token': {
       id: '/invites/$token'
       path: '/invites/$token'
@@ -204,6 +224,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChallengesChallengeIdRoute: ChallengesChallengeIdRoute,
   ChallengesNewRoute: ChallengesNewRoute,
   InvitesTokenRoute: InvitesTokenRoute,
+  ParticipantsPayRoute: ParticipantsPayRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

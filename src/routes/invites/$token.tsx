@@ -1,11 +1,9 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
-import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useAuthStore } from '../../stores/auth.store';
 import { InviteCard } from '../../components/InviteCard';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { showToast } from '../../components/Toast';
 import { DisclaimerFooter } from '../../components/DisclaimerFooter';
 
 export const Route = createFileRoute('/invites/$token')({
@@ -31,7 +29,6 @@ function InvitePage() {
   const { token } = Route.useParams();
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const [accepted, setAccepted] = useState(false);
 
   // Pitfall 4: Before redirecting to /signup or /login, save token in sessionStorage
   // so the auth redirect doesn't lose the invite context.
@@ -57,31 +54,12 @@ function InvitePage() {
     retry: false,
   });
 
-  // Accept mutation — POST /invites/:token/accept
-  const acceptMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiClient.post(`/invites/${token}/accept`, {});
-      if (res.status === 403) {
-        const body = (await res.json()) as { message: string };
-        throw new Error(body.message ?? 'Email não corresponde ao convite.');
-      }
-      if (!res.ok) {
-        throw new Error('Erro ao aceitar convite. Tente novamente.');
-      }
-      return res.json() as Promise<{ participantId: string; challengeId: string; status: string }>;
-    },
-    onSuccess: (data) => {
-      setAccepted(true);
-      showToast('Convite aceito! Bem-vindo ao desafio.');
-      // Navigate to challenge detail after a short delay for UX
-      setTimeout(() => {
-        void navigate({ to: '/challenges/$challengeId', params: { challengeId: data.challengeId } });
-      }, 1500);
-    },
-    onError: (err: Error) => {
-      showToast(err.message ?? 'Erro ao aceitar convite.');
-    },
-  });
+  // "Aceitar e pagar" (D-06) navigates straight to the pay screen with the
+  // invite token — the pay screen fires POST /invites/:token/accept-and-pay
+  // on mount, so accept + charge happen as one flow from the invitee's POV.
+  const goToPay = () => {
+    void navigate({ to: '/participants/pay', search: { token } });
+  };
 
   // Loading state
   if (isLoading) {
@@ -248,38 +226,7 @@ function InvitePage() {
     );
   }
 
-  // State: valid + logged in as matching email → show InviteCard + CTA "Aceitar convite"
-  if (accepted) {
-    return (
-      <section
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '32px 26px',
-          textAlign: 'center',
-        }}
-      >
-        <div style={{ fontSize: '3rem', marginBottom: 16 }}>🎉</div>
-        <h2
-          style={{
-            fontFamily: '"Baloo 2", system-ui, sans-serif',
-            fontWeight: 800,
-            fontSize: '1.4rem',
-            color: 'var(--green-ink)',
-          }}
-        >
-          Convite aceito!
-        </h2>
-        <p style={{ color: 'var(--muted)', fontSize: '0.92rem', marginTop: 8 }}>
-          Bem-vindo ao desafio. Aguardando os outros participantes...
-        </p>
-      </section>
-    );
-  }
-
+  // State: valid + logged in as matching email → show InviteCard + CTA "Aceitar e pagar"
   return (
     <section
       style={{
@@ -308,13 +255,7 @@ function InvitePage() {
         targetEmail={invite.targetEmail}
       />
       <div style={{ marginTop: 8 }}>
-        <PrimaryButton
-          onClick={() => acceptMutation.mutate()}
-          disabled={acceptMutation.isPending}
-          loading={acceptMutation.isPending}
-        >
-          Aceitar convite
-        </PrimaryButton>
+        <PrimaryButton onClick={goToPay}>Aceitar e pagar</PrimaryButton>
       </div>
       {/* "Não é aposta" disclaimer footer (PROF-02 / D-13) */}
       <DisclaimerFooter />

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useAuthStore } from '../../stores/auth.store';
 import { StatusPill } from '../../components/StatusPill';
+import { PrimaryButton } from '../../components/PrimaryButton';
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -103,6 +104,11 @@ function ChallengeDetailPage() {
   const participantCount = challenge.participants.length;
   // Prize = (participants × collab) - fee; minimum 0
   const prize = Math.max(0, participantCount * collab - fee);
+  // D-06: works for both the creator and any invitee who already accepted —
+  // both have a Participant row and hit the same "pagar minha entrada" endpoint.
+  const myParticipant = user
+    ? challenge.participants.find((p) => p.user.id === user.id)
+    : undefined;
 
   return (
     <section
@@ -320,6 +326,17 @@ function ChallengeDetailPage() {
           />
           <span>Aguardando pagamento dos participantes</span>
         </div>
+        {myParticipant && !myParticipant.paidAt && challenge.status === 'WAITING' && (
+          <div style={{ marginTop: 12 }}>
+            <PrimaryButton
+              onClick={() =>
+                void navigate({ to: '/participants/pay', search: { challengeId: challenge.id } })
+              }
+            >
+              Pagar minha entrada
+            </PrimaryButton>
+          </div>
+        )}
       </div>
 
       {/* Participants list */}
