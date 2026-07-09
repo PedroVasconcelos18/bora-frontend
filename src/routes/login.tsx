@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/auth.store';
 import { FormField } from '../components/FormField';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { DisclaimerFooter } from '../components/DisclaimerFooter';
+import { consumePendingInvite } from '../lib/pendingInvite';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido.'),
@@ -26,10 +27,19 @@ function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already authenticated
+  // Single post-auth navigation authority: fires both when the user was
+  // already authenticated on mount AND when a fresh login transitions
+  // user null -> set (setUser alone does not re-trigger any other effect,
+  // so this is the only place that decides where to go next). Resumes a
+  // pending invite token if one was saved before the auth redirect (GAP 2).
   useEffect(() => {
     if (user) {
-      void navigate({ to: '/home' });
+      const pendingToken = consumePendingInvite();
+      if (pendingToken) {
+        void navigate({ to: '/invites/$token', params: { token: pendingToken } });
+      } else {
+        void navigate({ to: '/home' });
+      }
     }
   }, [user, navigate]);
 
@@ -59,8 +69,9 @@ function LoginPage() {
       const res = await apiClient.post('/auth/login', data);
       if (res.ok) {
         const body = (await res.json()) as { user: { id: string; email: string; name: string } };
+        // Navigation is owned by the mount effect above (fires once on the
+        // null -> set transition) — do not navigate here to avoid a double-consume race.
         setUser(body.user);
-        void navigate({ to: '/home' });
       } else if (res.status === 401) {
         setServerError('E-mail ou senha incorretos.');
       } else {

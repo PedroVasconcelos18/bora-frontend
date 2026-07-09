@@ -11,9 +11,7 @@ import { useAuthStore, AuthUser } from '../stores/auth.store';
 import { TabBar } from '../components/TabBar';
 import { ToastContainer } from '../components/Toast';
 import { AppBar } from '../components/AppBar';
-
-// sessionStorage key used to persist invite tokens across the auth redirect (Pitfall 4)
-const PENDING_INVITE_KEY = 'pendingInviteToken';
+import { consumePendingInvite, savePendingInvite } from '../lib/pendingInvite';
 
 const queryClient = new QueryClient();
 
@@ -64,19 +62,25 @@ function AppWithAuth() {
   useEffect(() => {
     if (isLoading) return;
 
+    const currentPath = routerState.location.pathname;
+
     if (data?.user) {
       setUser(data.user);
 
       // After successful auth, check for a pending invite token and resume the accept flow.
       // The token was saved by /invites/$token before redirecting to /signup or /login (Pitfall 4).
-      const pendingToken = sessionStorage.getItem(PENDING_INVITE_KEY);
-      if (pendingToken) {
-        sessionStorage.removeItem(PENDING_INVITE_KEY);
-        void navigate({ to: '/invites/$token', params: { token: pendingToken } });
+      // Guard: skip this boot-time resume on /login and /signup — those pages now own
+      // post-auth navigation themselves (GAP 2 fix), so resuming here too would race /
+      // double-navigate against their own consumePendingInvite() call.
+      const onAuthPage = currentPath.startsWith('/login') || currentPath.startsWith('/signup');
+      if (!onAuthPage) {
+        const pendingToken = consumePendingInvite();
+        if (pendingToken) {
+          void navigate({ to: '/invites/$token', params: { token: pendingToken } });
+        }
       }
     } else {
       clearUser();
-      const currentPath = routerState.location.pathname;
       const isPublic = PUBLIC_ROUTES.some((r) => currentPath.startsWith(r));
       if (!isPublic) {
         // Defensive stash: if the guard would redirect a logged-out user away from an
@@ -88,7 +92,7 @@ function AppWithAuth() {
         if (currentPath.startsWith('/invites')) {
           const inviteToken = currentPath.split('/')[2];
           if (inviteToken) {
-            sessionStorage.setItem(PENDING_INVITE_KEY, inviteToken);
+            savePendingInvite(inviteToken);
           }
         }
         void navigate({ to: '/login' });

@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { InviteCard } from '../../components/InviteCard';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { DisclaimerFooter } from '../../components/DisclaimerFooter';
+import { savePendingInvite } from '../../lib/pendingInvite';
 
 export const Route = createFileRoute('/invites/$token')({
   component: InvitePage,
@@ -23,8 +24,6 @@ interface InvitePreview {
   };
 }
 
-const PENDING_INVITE_KEY = 'pendingInviteToken';
-
 function InvitePage() {
   const { token } = Route.useParams();
   const { user } = useAuthStore();
@@ -33,7 +32,7 @@ function InvitePage() {
   // Pitfall 4: Before redirecting to /signup or /login, save token in sessionStorage
   // so the auth redirect doesn't lose the invite context.
   const saveTokenAndNavigate = (to: '/signup' | '/login') => {
-    sessionStorage.setItem(PENDING_INVITE_KEY, token);
+    savePendingInvite(token);
     void navigate({ to });
   };
 
