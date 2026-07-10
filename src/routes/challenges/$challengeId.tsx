@@ -7,6 +7,8 @@ import { StatusPill } from '../../components/StatusPill';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { WaitingRoomList } from '../../components/WaitingRoomList';
 import { showToast } from '../../components/Toast';
+import { SegmentedTabs } from '../../components/SegmentedTabs';
+import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -75,6 +77,19 @@ function ChallengeDetailPage() {
       return (await res.json()) as WaitingRoomStatus;
     },
     enabled: !!challenge,
+  });
+
+  // EVID-01/03: the caller's own evidence for today, if any — feeds the
+  // "posted-today" state of EvidenceUploadCard. Only relevant once the
+  // challenge is ACTIVE (the Hoje tab is only shown then).
+  const { data: todayEvidence } = useQuery<TodayEvidence | null>({
+    queryKey: ['evidence-today', challengeId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/challenges/${challengeId}/evidences/today`);
+      if (!res.ok) throw new Error('evidence-today-error');
+      return (await res.json()) as TodayEvidence | null;
+    },
+    enabled: !!challenge && challenge.status === 'ACTIVE',
   });
 
   // D-09: creator-only cancellation, WAITING-only (guarded server-side too).
@@ -472,6 +487,57 @@ function ChallengeDetailPage() {
           )}
         </div>
       )}
+
+      {/* Core Loop (EVID-01/02): Hoje/Votar/Ranking tabs, sibling to the
+          WAITING waiting-room block above — shown only once the challenge is
+          ACTIVE. Votar/Ranking panels are placeholders here; Plans 05/06
+          replace them. */}
+      {challenge.status === 'ACTIVE' && (
+        <div style={{ marginBottom: 16 }}>
+          <SegmentedTabs>
+            {(activeTab) => {
+              if (activeTab === 'hoje') {
+                return (
+                  <EvidenceUploadCard
+                    challengeId={challenge.id}
+                    isPaid={myParticipant?.status === 'PAID'}
+                    todayEvidence={todayEvidence}
+                    onUploaded={() => {
+                      void queryClient.invalidateQueries({ queryKey: ['evidence-today', challengeId] });
+                    }}
+                  />
+                );
+              }
+
+              if (activeTab === 'votar') {
+                return <PlaceholderPanel copy="Votação chega em breve." />;
+              }
+
+              return <PlaceholderPanel copy="Ranking chega em breve." />;
+            }}
+          </SegmentedTabs>
+        </div>
+      )}
     </section>
+  );
+}
+
+/** Lightweight placeholder for the Votar/Ranking panels — filled by Plans 05/06. */
+function PlaceholderPanel({ copy }: { copy: string }) {
+  return (
+    <div
+      style={{
+        background: 'var(--card)',
+        border: '1px solid var(--line)',
+        borderRadius: 18,
+        padding: 18,
+        textAlign: 'center',
+        color: 'var(--muted)',
+        fontWeight: 600,
+        fontSize: '0.9rem',
+      }}
+    >
+      {copy}
+    </div>
   );
 }
