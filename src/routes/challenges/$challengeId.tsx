@@ -10,6 +10,7 @@ import { showToast } from '../../components/Toast';
 import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
 import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
+import { RankingList, type RankingData } from '../../components/RankingList';
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -106,6 +107,20 @@ function ChallengeDetailPage() {
     enabled: !!challenge && challenge.status === 'ACTIVE',
   });
 
+  // RANK-01/02/03/04, D-09: ranking + streak grid, refetching on screen open
+  // AND window/tab focus (not live polling) — explicit here for clarity even
+  // though it matches TanStack Query v5's own default.
+  const { data: ranking, isLoading: isRankingLoading } = useQuery<RankingData>({
+    queryKey: ['ranking', challengeId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/challenges/${challengeId}/ranking`);
+      if (!res.ok) throw new Error('ranking-error');
+      return (await res.json()) as RankingData;
+    },
+    enabled: !!challenge && challenge.status === 'ACTIVE',
+    refetchOnWindowFocus: true,
+  });
+
   // Tracks which evidence's card is mid-vote so only the tapped card shows
   // its buttons' loading state (not the whole list).
   const [votingEvidenceId, setVotingEvidenceId] = useState<string | null>(null);
@@ -122,6 +137,10 @@ function ChallengeDetailPage() {
     onSuccess: () => {
       showToast('Voto registrado!');
       void queryClient.invalidateQueries({ queryKey: ['votable-evidences', challengeId] });
+      // D-09: a cast vote can resolve/change another participant's tally the
+      // next cron tick, but the acting user's own vote-count-of-day feel
+      // should invalidate immediately rather than waiting for a focus event.
+      void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
     },
     onError: (err: Error) => {
       showToast(err.message ?? 'Erro ao registrar voto.');
@@ -532,10 +551,9 @@ function ChallengeDetailPage() {
         </div>
       )}
 
-      {/* Core Loop (EVID-01/02): Hoje/Votar/Ranking tabs, sibling to the
-          WAITING waiting-room block above — shown only once the challenge is
-          ACTIVE. Votar/Ranking panels are placeholders here; Plans 05/06
-          replace them. */}
+      {/* Core Loop (EVID-01/02, VOTE-01/04, RANK-01/02/03/04): Hoje/Votar/
+          Ranking tabs, sibling to the WAITING waiting-room block above —
+          shown only once the challenge is ACTIVE. All three tabs are real. */}
       {challenge.status === 'ACTIVE' && (
         <div style={{ marginBottom: 16 }}>
           <SegmentedTabs>
@@ -548,6 +566,10 @@ function ChallengeDetailPage() {
                     todayEvidence={todayEvidence}
                     onUploaded={() => {
                       void queryClient.invalidateQueries({ queryKey: ['evidence-today', challengeId] });
+                      // D-09: the acting user's own posted-today state feeds
+                      // into their streak grid — invalidate immediately
+                      // rather than waiting for a window-focus refetch.
+                      void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
                     }}
                   />
                 );
@@ -564,7 +586,7 @@ function ChallengeDetailPage() {
                 );
               }
 
-              return <PlaceholderPanel copy="Ranking chega em breve." />;
+              return <RankingPanel isLoading={isRankingLoading} ranking={ranking} />;
             }}
           </SegmentedTabs>
         </div>
@@ -650,22 +672,40 @@ function VotarPanel({
   );
 }
 
-/** Lightweight placeholder for the Ranking panel — filled by Plan 06. */
-function PlaceholderPanel({ copy }: { copy: string }) {
-  return (
-    <div
-      style={{
-        background: 'var(--card)',
-        border: '1px solid var(--line)',
-        borderRadius: 18,
-        padding: 18,
-        textAlign: 'center',
-        color: 'var(--muted)',
-        fontWeight: 600,
-        fontSize: '0.9rem',
-      }}
-    >
-      {copy}
-    </div>
-  );
+/**
+ * RankingPanel — the "Ranking" tab (RANK-01/02/03/04, D-09). Renders the
+ * shared loading spinner or the RankingList (rows + progress + prize note +
+ * leader/tie note + per-participant StreakGrid). The route owns the
+ * refetchOnWindowFocus query; this is purely the render switch.
+ */
+function RankingPanel({
+  isLoading,
+  ranking,
+}: {
+  isLoading: boolean;
+  ranking: RankingData | undefined;
+}) {
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+        <span
+          style={{
+            display: 'inline-block',
+            width: 22,
+            height: 22,
+            border: '3px solid var(--mint-deep)',
+            borderTopColor: 'var(--green)',
+            borderRadius: '50%',
+            animation: 'sp 0.8s linear infinite',
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (!ranking) {
+    return null;
+  }
+
+  return <RankingList ranking={ranking} />;
 }
