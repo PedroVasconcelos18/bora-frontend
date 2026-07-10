@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useAuthStore } from '../../stores/auth.store';
@@ -9,6 +9,7 @@ import { WaitingRoomList } from '../../components/WaitingRoomList';
 import { showToast } from '../../components/Toast';
 import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
+import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -91,6 +92,49 @@ function ChallengeDetailPage() {
     },
     enabled: !!challenge && challenge.status === 'ACTIVE',
   });
+
+  // VOTE-01/04: today's votable evidences from other participants (tally
+  // deliberately omitted server-side, D-05). Own evidence already excluded
+  // by the API — do not re-filter it client-side.
+  const { data: votableEvidences, isLoading: isVotableLoading } = useQuery<VoteCardEvidence[]>({
+    queryKey: ['votable-evidences', challengeId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/challenges/${challengeId}/evidences`);
+      if (!res.ok) throw new Error('votable-evidences-error');
+      return (await res.json()) as VoteCardEvidence[];
+    },
+    enabled: !!challenge && challenge.status === 'ACTIVE',
+  });
+
+  // Tracks which evidence's card is mid-vote so only the tapped card shows
+  // its buttons' loading state (not the whole list).
+  const [votingEvidenceId, setVotingEvidenceId] = useState<string | null>(null);
+
+  const castVoteMutation = useMutation({
+    mutationFn: async ({ evidenceId, value }: { evidenceId: string; value: VoteValue }) => {
+      const res = await apiClient.post(`/evidences/${evidenceId}/votes`, { value });
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(errBody.message ?? 'Erro ao registrar voto. Tente novamente.');
+      }
+      return res.json() as Promise<{ success: boolean }>;
+    },
+    onSuccess: () => {
+      showToast('Voto registrado!');
+      void queryClient.invalidateQueries({ queryKey: ['votable-evidences', challengeId] });
+    },
+    onError: (err: Error) => {
+      showToast(err.message ?? 'Erro ao registrar voto.');
+    },
+    onSettled: () => {
+      setVotingEvidenceId(null);
+    },
+  });
+
+  const handleVote = (evidenceId: string, value: VoteValue) => {
+    setVotingEvidenceId(evidenceId);
+    castVoteMutation.mutate({ evidenceId, value });
+  };
 
   // D-09: creator-only cancellation, WAITING-only (guarded server-side too).
   const cancelMutation = useMutation({
@@ -510,7 +554,14 @@ function ChallengeDetailPage() {
               }
 
               if (activeTab === 'votar') {
-                return <PlaceholderPanel copy="Votação chega em breve." />;
+                return (
+                  <VotarPanel
+                    isLoading={isVotableLoading}
+                    evidences={votableEvidences}
+                    votingEvidenceId={votingEvidenceId}
+                    onVote={handleVote}
+                  />
+                );
               }
 
               return <PlaceholderPanel copy="Ranking chega em breve." />;
@@ -522,7 +573,84 @@ function ChallengeDetailPage() {
   );
 }
 
-/** Lightweight placeholder for the Votar/Ranking panels — filled by Plans 05/06. */
+/**
+ * VotarPanel — the "Votar" tab (VOTE-01/04, D-04/D-05). Renders the vertical
+ * vote-card list, the shared loading spinner, or the empty-state copy.
+ * The route owns the query + mutation; this is purely the render switch.
+ */
+function VotarPanel({
+  isLoading,
+  evidences,
+  votingEvidenceId,
+  onVote,
+}: {
+  isLoading: boolean;
+  evidences: VoteCardEvidence[] | undefined;
+  votingEvidenceId: string | null;
+  onVote: (evidenceId: string, value: VoteValue) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+        <span
+          style={{
+            display: 'inline-block',
+            width: 22,
+            height: 22,
+            border: '3px solid var(--mint-deep)',
+            borderTopColor: 'var(--green)',
+            borderRadius: '50%',
+            animation: 'sp 0.8s linear infinite',
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (!evidences || evidences.length === 0) {
+    return (
+      <div
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--line)',
+          borderRadius: 18,
+          padding: 18,
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            fontFamily: '"Baloo 2", system-ui, sans-serif',
+            fontWeight: 700,
+            fontSize: '1rem',
+            color: 'var(--ink)',
+            marginBottom: 6,
+          }}
+        >
+          Nenhuma evidência pra votar agora
+        </div>
+        <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.85rem', margin: 0 }}>
+          Quando alguém postar a evidência do dia, ela aparece aqui.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {evidences.map((evidence) => (
+        <VoteCard
+          key={evidence.id}
+          evidence={evidence}
+          isVoting={votingEvidenceId === evidence.id}
+          onVote={(value) => onVote(evidence.id, value)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Lightweight placeholder for the Ranking panel — filled by Plan 06. */
 function PlaceholderPanel({ copy }: { copy: string }) {
   return (
     <div
