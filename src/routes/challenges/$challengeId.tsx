@@ -36,6 +36,11 @@ interface ChallengeDetail {
   createdAt: string;
 }
 
+interface MyPayout {
+  status: 'PAYOUT_PENDING' | 'PAID_OUT';
+  amount: string;
+}
+
 interface WaitingRoomStatus {
   status: string;
   deadline: string;
@@ -117,7 +122,25 @@ function ChallengeDetailPage() {
       if (!res.ok) throw new Error('ranking-error');
       return (await res.json()) as RankingData;
     },
-    enabled: !!challenge && challenge.status === 'ACTIVE',
+    // D-11: relaxed to also fire once FINISHED so the frozen final standings
+    // still load for the finalizado screen — RankingService already works
+    // for any challenge status, this is purely a frontend guard relaxation.
+    enabled: !!challenge && (challenge.status === 'ACTIVE' || challenge.status === 'FINISHED'),
+    refetchOnWindowFocus: true,
+  });
+
+  // PAY-06/D-11: the caller's own prize status for a finalizado challenge —
+  // null for a non-winner. refetchOnWindowFocus so the banner flips
+  // pendente -> enviado after the admin marks PAID_OUT, without a hard
+  // reload (mirrors the Phase 3 D-09 refetch-on-focus pattern).
+  const { data: myPayout } = useQuery<MyPayout | null>({
+    queryKey: ['my-payout', challengeId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/challenges/${challengeId}/my-payout`);
+      if (!res.ok) throw new Error('my-payout-error');
+      return (await res.json()) as MyPayout | null;
+    },
+    enabled: !!challenge && challenge.status === 'FINISHED',
     refetchOnWindowFocus: true,
   });
 
@@ -591,7 +614,52 @@ function ChallengeDetailPage() {
           </SegmentedTabs>
         </div>
       )}
+
+      {/* Finalizado (PAY-06/D-11): the frozen final ranking as a natural
+          continuation of the live Ranking tab — no bespoke celebration
+          screen. A winner sees a prize-status banner above it; a non-winner
+          sees the same frozen standings with no banner (RankingList already
+          surfaces who won via leaders). */}
+      {challenge.status === 'FINISHED' && (
+        <div style={{ marginBottom: 16 }}>
+          {myPayout && <WinnerBanner payout={myPayout} />}
+          <RankingPanel isLoading={isRankingLoading} ranking={ranking} />
+        </div>
+      )}
     </section>
+  );
+}
+
+/**
+ * WinnerBanner — the prize-status banner for a finalizado challenge (D-11).
+ * Mirrors RankingList's mint prize-note card style. Amount is always the
+ * server-created payout row's amount (payment.amount), never computed
+ * client-side (T-04-15).
+ */
+function WinnerBanner({ payout }: { payout: MyPayout }) {
+  const formattedAmount = parseFloat(payout.amount).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  return (
+    <div
+      style={{
+        background: 'var(--mint)',
+        borderRadius: 14,
+        padding: 15,
+        marginBottom: 14,
+        color: 'var(--green-ink)',
+        fontWeight: 700,
+        fontSize: '0.95rem',
+      }}
+    >
+      {payout.status === 'PAYOUT_PENDING'
+        ? `🏆 Você venceu! Prêmio ${formattedAmount} — pendente ⏳`
+        : '🏆 Prêmio enviado ✅'}
+    </div>
   );
 }
 
