@@ -9,19 +9,9 @@ export const Route = createFileRoute('/profile')({
   component: ProfilePage,
 });
 
-interface Participant {
-  id: string;
-  user: { id: string; name: string; email: string };
-  status: string;
-  paidAt: string | null;
-}
-
-interface Challenge {
-  id: string;
-  title: string;
-  emoji: string;
-  status: string;
-  participants: Participant[];
+interface ProfileStats {
+  activeChallenges: number;
+  validatedDays: number;
 }
 
 function ProfilePage() {
@@ -34,22 +24,21 @@ function ProfilePage() {
     }
   }, [user, navigate]);
 
-  // Fetch challenges to compute aggregate stats (PROF-01 aggregation — Phase 4 wires real counters)
-  const { data: challenges } = useQuery<Challenge[]>({
-    queryKey: ['challenges'],
+  // PROF-01: server-computed stats (D-12) — never client-side aggregation.
+  const { data: stats } = useQuery<ProfileStats>({
+    queryKey: ['profile-stats'],
     queryFn: async () => {
-      const res = await apiClient.get('/challenges');
-      if (!res.ok) return [];
-      return (await res.json()) as Challenge[];
+      const res = await apiClient.get('/profile/stats');
+      if (!res.ok) throw new Error('profile-stats-error');
+      return (await res.json()) as ProfileStats;
     },
     enabled: !!user,
   });
 
   if (!user) return null;
 
-  // Aggregate placeholders — Phase 4 (PROF-01) will compute real validated-day counts from evidences/votes.
-  const activeCount = (challenges ?? []).filter((c) => c.status === 'ACTIVE').length;
-  const validatedDays = 0; // Phase 4 PROF-01 aggregation placeholder
+  const activeCount = stats?.activeChallenges ?? 0;
+  const validatedDays = stats?.validatedDays ?? 0;
 
   const handleLogout = async () => {
     try {
