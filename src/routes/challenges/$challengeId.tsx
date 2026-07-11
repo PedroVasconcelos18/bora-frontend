@@ -11,7 +11,7 @@ import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
 import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
 import { RankingList, type RankingData } from '../../components/RankingList';
-import { StreakGrid } from '../../components/StreakGrid';
+import { StreakGrid, type StreakCellState } from '../../components/StreakGrid';
 import { EvidenceStatusBadge, type EvidenceStatus } from '../../components/EvidenceStatusBadge';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
@@ -240,7 +240,16 @@ function ChallengeDetailPage() {
   // VOTE-01/04: today's votable evidences from other participants (tally
   // deliberately omitted server-side, D-05). Own evidence already excluded
   // by the API — do not re-filter it client-side.
-  const { data: votableEvidences, isLoading: isVotableLoading } = useQuery<VoteCardEvidence[]>({
+  //
+  // isError/refetch (CHALW-02, Plan 06-03) are exposed here so
+  // DesktopVotarPanel can render the erro card + "Tentar de novo" without a
+  // new query — this is the SAME query the mobile VotarPanel already reads.
+  const {
+    data: votableEvidences,
+    isLoading: isVotableLoading,
+    isError: isVotableError,
+    refetch: refetchVotable,
+  } = useQuery<VoteCardEvidence[]>({
     queryKey: ['votable-evidences', challengeId],
     queryFn: async () => {
       const res = await apiClient.get(`/challenges/${challengeId}/evidences`);
@@ -1121,9 +1130,11 @@ function ChallengeDetailPage() {
         </div>
       </div>
 
-      {/* Panel region — only 'default' is implemented by this plan (CHALW-01,
-          D-04). Any other panel value currently falls through to this same
-          layout until Plan 06-03 adds the votar/feed/ranking branches. */}
+      {/* Panel region — 'default' (CHALW-01/D-04) plus the three in-place
+          expansions added by Plan 06-03: 'votar' (CHALW-02), 'feed'
+          (CHALW-03), 'ranking' (CHALW-04). Exactly one branch renders at a
+          time, driven by the panel state Plan 06-02 scaffolded. */}
+      {panel === 'default' && (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, alignItems: 'flex-start' }}>
         {/* Column 1 — info: Regras do jogo / Detalhes / A turma / Sua sequência */}
         <div
@@ -1295,6 +1306,28 @@ function ChallengeDetailPage() {
           )}
         </div>
       </div>
+      )}
+
+      {panel === 'votar' && (
+        <DesktopVotarPanel
+          isLoading={isVotableLoading}
+          isError={isVotableError}
+          evidences={votableEvidences}
+          votingEvidenceId={votingEvidenceId}
+          onVote={handleVote}
+          onRetry={() => void refetchVotable()}
+          voteDeadlineLabel={formattedVoteDeadline}
+          challengeId={challenge.id}
+          isPaid={myParticipant?.status === 'PAID'}
+          todayEvidence={todayEvidence}
+          onUploaded={() => {
+            void queryClient.invalidateQueries({ queryKey: ['evidence-today', challengeId] });
+            void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
+          }}
+          ranking={ranking}
+          myStreak={myStreak}
+        />
+      )}
     </div>
   );
 }
@@ -1446,3 +1479,192 @@ function RankingPanel({
 
   return <RankingList ranking={ranking} />;
 }
+
+/**
+ * DesktopVotarPanel — the "votar" panel expansion (CHALW-02, D-02). Pure
+ * render-switch over the SAME votable-evidences query the mobile VotarPanel
+ * reads (isError/refetch extended above); owns no query of its own. Does
+ * not touch VotarPanel or its copy (D-12 mobile non-regression).
+ */
+interface DesktopVotarPanelProps {
+  isLoading: boolean;
+  isError: boolean;
+  evidences: VoteCardEvidence[] | undefined;
+  votingEvidenceId: string | null;
+  onVote: (evidenceId: string, value: VoteValue) => void;
+  onRetry: () => void;
+  voteDeadlineLabel: string | null;
+  challengeId: string;
+  isPaid: boolean;
+  todayEvidence: (TodayEvidence & { postedAt?: string }) | null | undefined;
+  onUploaded: () => void;
+  ranking: RankingData | undefined;
+  myStreak: StreakCellState[];
+}
+
+function DesktopVotarPanel({
+  isLoading,
+  isError,
+  evidences,
+  votingEvidenceId,
+  onVote,
+  onRetry,
+  voteDeadlineLabel,
+  challengeId,
+  isPaid,
+  todayEvidence,
+  onUploaded,
+  ranking,
+  myStreak,
+}: DesktopVotarPanelProps) {
+  const evidenceCount = evidences?.length ?? 0;
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, alignItems: 'flex-start' }}>
+      <div style={{ flex: '3 1 480px', minWidth: 320, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ ...cardHeadingStyle, marginBottom: 10 }}>Hoje — evidência enviada</div>
+          <EvidenceUploadCard
+            challengeId={challengeId}
+            isPaid={isPaid}
+            todayEvidence={todayEvidence}
+            onUploaded={onUploaded}
+          />
+        </div>
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+            <div style={{ ...cardHeadingStyle, marginBottom: 0 }}>Votar ({evidenceCount})</div>
+            {voteDeadlineLabel && (
+              <span
+                style={{
+                  background: 'var(--mint)',
+                  color: 'var(--green-ink)',
+                  borderRadius: 999,
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  padding: '5px 12px',
+                }}
+              >
+                ⏳ Janela fecha hoje às {voteDeadlineLabel}
+              </span>
+            )}
+          </div>
+
+          {isLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 22,
+                  height: 22,
+                  border: '3px solid var(--mint-deep)',
+                  borderTopColor: 'var(--green)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite',
+                }}
+              />
+            </div>
+          ) : isError ? (
+            <div
+              style={{
+                background: 'var(--card)',
+                border: '2px solid var(--coral)',
+                borderRadius: 18,
+                padding: 18,
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: '"Baloo 2", system-ui, sans-serif',
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  color: 'var(--ink)',
+                  marginBottom: 6,
+                }}
+              >
+                Não deu pra registrar seu voto
+              </div>
+              <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 14px' }}>
+                Confira sua conexão e tente de novo. Seu voto não foi contado.
+              </p>
+              <button
+                type="button"
+                onClick={onRetry}
+                style={{
+                  background: 'none',
+                  border: '2px solid var(--coral)',
+                  borderRadius: 14,
+                  color: 'var(--coral)',
+                  fontFamily: '"Baloo 2", system-ui, sans-serif',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  padding: '10px 18px',
+                  cursor: 'pointer',
+                }}
+              >
+                Tentar de novo
+              </button>
+            </div>
+          ) : evidenceCount === 0 ? (
+            <div
+              style={{
+                background: 'var(--card)',
+                border: '1px solid var(--line)',
+                borderRadius: 18,
+                padding: 18,
+                textAlign: 'center',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: '"Baloo 2", system-ui, sans-serif',
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  color: 'var(--ink)',
+                  marginBottom: 6,
+                }}
+              >
+                Tudo votado por hoje!
+              </div>
+              <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.85rem', margin: 0 }}>
+                Quando a turma postar novas evidências, elas aparecem aqui pra você validar.
+              </p>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: 14,
+                alignItems: 'start',
+              }}
+            >
+              {(evidences ?? []).map((evidence) => (
+                <VoteCard
+                  key={evidence.id}
+                  evidence={evidence}
+                  isVoting={votingEvidenceId === evidence.id}
+                  onVote={(value) => onVote(evidence.id, value)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ flex: '1 1 300px', minWidth: 280, maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={infoCardStyle}>
+          <div style={cardHeadingStyle}>Ranking</div>
+          {ranking && <RankingList ranking={ranking} />}
+        </div>
+        <div style={infoCardStyle}>
+          <div style={cardHeadingStyle}>Sua sequência</div>
+          <StreakGrid streak={myStreak} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
