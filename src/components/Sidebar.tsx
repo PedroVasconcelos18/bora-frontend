@@ -148,7 +148,7 @@ export function Sidebar() {
             e.currentTarget.style.outline = 'none';
           }}
         >
-          <span>👤</span>
+          <span>😎</span>
           Perfil
         </button>
       </nav>
