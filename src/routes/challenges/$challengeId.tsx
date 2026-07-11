@@ -11,6 +11,8 @@ import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
 import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
 import { RankingList, type RankingData } from '../../components/RankingList';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { BREAKPOINTS } from '../../lib/breakpoints';
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -34,6 +36,13 @@ interface ChallengeDetail {
   creatorId: string;
   participants: Participant[];
   createdAt: string;
+  // GET /challenges/:id already returns this field (ChallengesService.get
+  // spreads the raw Prisma Challenge row); only the frontend type omitted
+  // it. Set server-side at WAITING->ACTIVE activation (payments.service.ts
+  // `starts_at = NOW()`), so it is always present once status is ACTIVE.
+  // Needed for the web header's "Dia X de Y · início → fim" meta line
+  // (D-04/CHALW-01) — no new query, no new endpoint (Rule 1/2 fix).
+  startsAt: string | null;
 }
 
 interface MyPayout {
@@ -147,6 +156,26 @@ function ChallengeDetailPage() {
   // Tracks which evidence's card is mid-vote so only the tapped card shows
   // its buttons' loading state (not the whole list).
   const [votingEvidenceId, setVotingEvidenceId] = useState<string | null>(null);
+
+  // CHALW-01/D-01/D-02/D-03: in-place panel state for the web desktop reflow
+  // (default 3-column | votar | feed | ranking expanded panels). Not a new
+  // route, not a modal. Only the 'default' layout is implemented by this
+  // plan (Plan 06-03 wires the votar/feed/ranking branches) — any other
+  // panel value currently falls through to the default layout below.
+  const [panel, setPanel] = useState<'default' | 'votar' | 'feed' | 'ranking'>('default');
+
+  // D-12/D-13: this route body renders inside BOTH the mobile device tree
+  // and the web WebShell tree (__root.tsx's single <Outlet/> mounts it in
+  // either case) — this internal gate is the only way to keep the
+  // pre-existing mobile JSX byte-identical while adding the web layout
+  // beside it. Computed unconditionally, before any early return, so the
+  // rules of hooks stay satisfied regardless of which branch is taken next
+  // (mirrors the identical pattern already established in home.tsx by Plan
+  // 06-01 — the plan text for this task placed this hook after the
+  // isLoading/isError early returns, which would violate the rules of hooks
+  // by conditionally skipping this hook call on some renders; corrected
+  // here per deviation Rule 1).
+  const isWeb = useMediaQuery(`(min-width: ${BREAKPOINTS.tablet}px)`);
 
   const castVoteMutation = useMutation({
     mutationFn: async ({ evidenceId, value }: { evidenceId: string; value: VoteValue }) => {
@@ -279,6 +308,10 @@ function ChallengeDetailPage() {
       })
     : null;
 
+  // D-12: the pre-existing mobile <section> return, moved unchanged inside
+  // this gate — its markup/text/WAITING/ACTIVE(SegmentedTabs)/FINISHED
+  // blocks are untouched, so <768px stays byte-identical.
+  if (!isWeb) {
   return (
     <section
       style={{
@@ -627,6 +660,298 @@ function ChallengeDetailPage() {
         </div>
       )}
     </section>
+  );
+  }
+
+  // ------------------------------------------------------------------------
+  // Web (>=768px) branch below — reached only once isWeb is true. CHALW-01,
+  // D-01/D-02/D-03/D-04/D-11.
+  // ------------------------------------------------------------------------
+
+  // D-11: WAITING/FINISHED get only a simple centered single-column
+  // fallback — the SAME existing WAITING/FINISHED JSX reused verbatim
+  // (no new component, no new copy), just wrapped narrower. The rich
+  // WAITING/FINISHED web layout is Phase 7.
+  if (challenge.status !== 'ACTIVE') {
+    return (
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        {challenge.status === 'WAITING' && (
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: 18,
+              padding: 18,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                marginBottom: 13,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              ⏳ Aguardando turma
+            </div>
+
+            {waitingRoom ? (
+              <>
+                <div
+                  style={{
+                    color: 'var(--green-ink)',
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    marginBottom: 4,
+                  }}
+                >
+                  {waitingRoom.paidCount} de {waitingRoom.totalCount} pagaram
+                </div>
+                {formattedDeadline && (
+                  <div
+                    style={{
+                      color: 'var(--muted)',
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      marginBottom: 13,
+                    }}
+                  >
+                    Começa quando 3+ pagarem. Prazo: {formattedDeadline}
+                  </div>
+                )}
+
+                {waitingRoom.participants.length > 0 && (
+                  <WaitingRoomList participants={waitingRoom.participants} />
+                )}
+              </>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  color: 'var(--green-ink)',
+                  fontWeight: 600,
+                  padding: '6px 0',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 22,
+                    height: 22,
+                    border: '3px solid var(--mint-deep)',
+                    borderTopColor: 'var(--green)',
+                    borderRadius: '50%',
+                    animation: 'sp 0.8s linear infinite',
+                    flexShrink: 0,
+                  }}
+                />
+                <span>Carregando status do desafio...</span>
+              </div>
+            )}
+
+            {myParticipant && !myParticipant.paidAt && (
+              <div style={{ marginTop: 12 }}>
+                <PrimaryButton
+                  onClick={() =>
+                    void navigate({ to: '/participants/pay', search: { challengeId: challenge.id } })
+                  }
+                >
+                  Pagar minha entrada
+                </PrimaryButton>
+              </div>
+            )}
+
+            {isCreator && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={cancelMutation.isPending}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    fontFamily: '"Baloo 2", system-ui, sans-serif',
+                    fontWeight: 700,
+                    fontSize: '0.92rem',
+                    padding: '12px 20px',
+                    borderRadius: 16,
+                    border: '1px solid var(--coral)',
+                    background: 'transparent',
+                    color: 'var(--coral)',
+                    cursor: cancelMutation.isPending ? 'not-allowed' : 'pointer',
+                    opacity: cancelMutation.isPending ? 0.6 : 1,
+                  }}
+                >
+                  {cancelMutation.isPending ? 'Cancelando...' : 'Cancelar desafio'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {challenge.status === 'FINISHED' && (
+          <div style={{ marginBottom: 16 }}>
+            {myPayout && <WinnerBanner payout={myPayout} />}
+            <RankingPanel isLoading={isRankingLoading} ranking={ranking} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ACTIVE, web: shared header (D-01) + panel region. Only 'default' is
+  // implemented by this plan (Task 2 fills it in) — any other panel value
+  // currently falls through to the same default layout until Plan 06-03
+  // adds the votar/feed/ranking branches.
+  const startsAtDate = challenge.startsAt ? new Date(challenge.startsAt) : null;
+  const endsAtDate = startsAtDate
+    ? new Date(startsAtDate.getTime() + (challenge.durationDays - 1) * 24 * 60 * 60 * 1000)
+    : null;
+  // Client-side "Dia X de Y" display estimate (not authoritative — the
+  // backend's per-day streak derivation already uses São Paulo calendar
+  // days; this is a header meta line only, no new query).
+  const dayOfChallenge = startsAtDate
+    ? Math.min(
+        challenge.durationDays,
+        Math.max(1, Math.floor((Date.now() - startsAtDate.getTime()) / (24 * 60 * 60 * 1000)) + 1),
+      )
+    : 1;
+  const shortDateFormat: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit' };
+  const formattedStart = startsAtDate ? startsAtDate.toLocaleDateString('pt-BR', shortDateFormat) : '—';
+  const formattedEnd = endsAtDate ? endsAtDate.toLocaleDateString('pt-BR', shortDateFormat) : '—';
+  const formattedPrize = prize.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  return (
+    <div>
+      {/* Shared web header (D-01) — back-link, emoji tile, title, StatusPill,
+          meta line, prize-tile. Common to all 4 panels. */}
+      <div style={{ marginBottom: 18 }}>
+        {panel === 'default' ? (
+          <Link
+            to="/home"
+            style={{
+              color: 'var(--muted)',
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 10,
+            }}
+          >
+            ← Seus desafios
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPanel('default')}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: 'var(--muted)',
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 10,
+            }}
+          >
+            ← Voltar pro desafio
+          </button>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 16,
+              background: 'var(--mint)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: '1.8rem',
+              flexShrink: 0,
+            }}
+          >
+            {challenge.emoji}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h1
+                style={{
+                  fontFamily: '"Baloo 2", system-ui, sans-serif',
+                  fontWeight: 800,
+                  fontSize: '1.6rem',
+                  lineHeight: 1.1,
+                  color: 'var(--green-ink)',
+                  margin: 0,
+                }}
+              >
+                {challenge.title}
+              </h1>
+              <StatusPill status={challenge.status} />
+            </div>
+            <div style={{ marginTop: 4, fontSize: '0.88rem', fontWeight: 600, color: 'var(--muted)' }}>
+              Dia {dayOfChallenge} de {challenge.durationDays} · {formattedStart} → {formattedEnd} · {participantCount} pessoas
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginLeft: 'auto',
+              background: 'var(--mint)',
+              borderRadius: 16,
+              padding: '12px 20px',
+              textAlign: 'right',
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                color: 'var(--green-ink)',
+              }}
+            >
+              {panel === 'ranking' ? 'Prêmio em jogo' : 'Prêmio acumulado'}
+            </div>
+            <div
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontWeight: 800,
+                fontSize: '1.4rem',
+                color: 'var(--green-ink)',
+              }}
+            >
+              {formattedPrize}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Panel region — only 'default' is implemented by this plan (Task 2
+          fills in the 3-column layout below). */}
+      <div>{/* Task 2 replaces this placeholder with the default 3-column layout */}</div>
+    </div>
   );
 }
 
