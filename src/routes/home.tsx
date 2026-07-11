@@ -174,39 +174,69 @@ function HomePage() {
   const hasChallenges = !isLoading && challenges && challenges.length > 0;
   const isEmptyDashboard = !isLoading && (!challenges || challenges.length === 0);
 
+  // DASH-03 — shimmer skeleton block, tokens-only gradient (WEB-05). Never
+  // the canvas gradient hexes — composed from var(--line)/var(--card) only.
+  const shimmerBlockStyle = (height: number, width?: number, borderRadius = 20) => ({
+    height,
+    width,
+    background: 'linear-gradient(100deg, var(--line) 40%, var(--card) 50%, var(--line) 60%)',
+    backgroundSize: '200% 100%',
+    animation: 'shimmer 1.4s infinite',
+    borderRadius,
+  });
+
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, alignItems: 'flex-start' }}>
       <div style={{ flex: '2 1 480px', minWidth: 0 }}>
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ color: 'var(--muted)', fontSize: '0.78rem', fontWeight: 700, marginBottom: 4 }}>
-            E aí, {firstName}! · {todayLabel}
-          </div>
-          <h1
-            style={{
-              fontFamily: '"Baloo 2", system-ui, sans-serif',
-              fontWeight: 800,
-              fontSize: '1.9rem',
-              lineHeight: 1.1,
-              color: 'var(--green-ink)',
-            }}
-          >
-            Seus desafios
-          </h1>
-        </div>
-
-        {isLoading && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-            <span
+        {isLoading ? (
+          <>
+            <div style={{ ...shimmerBlockStyle(14, 220, 10), marginBottom: 10 }} />
+            <div style={{ ...shimmerBlockStyle(32, 300, 10), marginBottom: 18 }} />
+            <div
               style={{
-                display: 'inline-block',
-                width: 32,
-                height: 32,
-                border: '3px solid var(--mint-deep)',
-                borderTopColor: 'var(--green)',
-                borderRadius: '50%',
-                animation: 'spin 0.8s linear infinite',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                gap: 16,
+                marginBottom: 18,
               }}
-            />
+            >
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} style={shimmerBlockStyle(152)} />
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 20,
+                  height: 20,
+                  border: '3px solid var(--mint-deep)',
+                  borderTopColor: 'var(--green)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite',
+                }}
+              />
+              <span style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.78rem' }}>
+                Carregando seus desafios…
+              </span>
+            </div>
+          </>
+        ) : (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ color: 'var(--muted)', fontSize: '0.78rem', fontWeight: 700, marginBottom: 4 }}>
+              E aí, {firstName}! · {todayLabel}
+            </div>
+            <h1
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontWeight: 800,
+                fontSize: '1.9rem',
+                lineHeight: 1.1,
+                color: 'var(--green-ink)',
+              }}
+            >
+              Seus desafios
+            </h1>
           </div>
         )}
 
@@ -308,19 +338,10 @@ function HomePage() {
 
       <div style={{ flex: '1 1 280px', maxWidth: 330, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {isLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-            <span
-              style={{
-                display: 'inline-block',
-                width: 32,
-                height: 32,
-                border: '3px solid var(--mint-deep)',
-                borderTopColor: 'var(--green)',
-                borderRadius: '50%',
-                animation: 'spin 0.8s linear infinite',
-              }}
-            />
-          </div>
+          <>
+            <div style={shimmerBlockStyle(180)} />
+            <div style={shimmerBlockStyle(250)} />
+          </>
         ) : (
           <PendenciasCard challenges={challenges ?? []} />
         )}

@@ -52,6 +52,11 @@ h1, h2, h3 {
   to { transform: rotate(360deg); }
 }
 
+/* Shimmer animation (used by the web dashboard loading skeleton, DASH-03) */
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+
 /* Reduced motion — disable all animations and transitions */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
