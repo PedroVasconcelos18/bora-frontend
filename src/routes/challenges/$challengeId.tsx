@@ -1355,6 +1355,8 @@ function ChallengeDetailPage() {
           onBackToDefault={() => setPanel('default')}
         />
       )}
+
+      {panel === 'ranking' && <DesktopRankingPanel isLoading={isRankingLoading} ranking={ranking} />}
     </div>
   );
 }
@@ -1815,3 +1817,208 @@ function DesktopFeedPanel({
   );
 }
 
+/**
+ * DesktopRankingPanel — the "ranking" panel expansion (CHALW-04, D-03).
+ * Leader banner (trailing-streak count derived client-side from the loaded
+ * ranking data) + Classificação (RankingList reused verbatim) +
+ * Consistência (StreakGrid sliced to the last 7 cells per participant). No
+ * new endpoint — reads only the route's existing `ranking` query.
+ */
+interface DesktopRankingPanelProps {
+  isLoading: boolean;
+  ranking: RankingData | undefined;
+}
+
+/** Counts consecutive 'cumprido' cells from the END of a streak array,
+ * stopping at the first non-'cumprido' cell — client-side "sequência de N
+ * dias" (no backend field for this, per UI-SPEC). */
+function countTrailingCumprido(streak: StreakCellState[]): number {
+  let count = 0;
+  for (let i = streak.length - 1; i >= 0; i--) {
+    if (streak[i] !== 'cumprido') break;
+    count++;
+  }
+  return count;
+}
+
+function DesktopRankingPanel({ isLoading, ranking }: DesktopRankingPanelProps) {
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+        <span
+          style={{
+            display: 'inline-block',
+            width: 22,
+            height: 22,
+            border: '3px solid var(--mint-deep)',
+            borderTopColor: 'var(--green)',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (!ranking) {
+    return null;
+  }
+
+  const leaderName = ranking.leaders[0];
+  const leader = leaderName ? ranking.participants.find((p) => p.name === leaderName) : undefined;
+  const streakCount = leader ? countTrailingCumprido(leader.streak) : 0;
+  const formattedPrize = parseFloat(ranking.prize).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  return (
+    <div>
+      <h1
+        style={{
+          fontFamily: '"Baloo 2", system-ui, sans-serif',
+          fontWeight: 800,
+          fontSize: '1.9rem',
+          lineHeight: 1.1,
+          color: 'var(--ink)',
+          margin: '0 0 6px',
+        }}
+      >
+        Ranking
+      </h1>
+      <p style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--muted)', margin: '0 0 20px' }}>
+        Atualiza conforme as evidências são validadas pela turma
+      </p>
+
+      {leader && (
+        <div
+          style={{
+            background: 'var(--mint)',
+            borderRadius: 22,
+            padding: '22px 26px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 18,
+            marginBottom: 22,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: '1.8rem' }} aria-hidden="true">
+            🏆
+          </span>
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              background: 'var(--green)',
+              display: 'grid',
+              placeItems: 'center',
+              color: 'var(--card)',
+              fontFamily: '"Baloo 2", system-ui, sans-serif',
+              fontWeight: 700,
+              fontSize: '1.1rem',
+              flexShrink: 0,
+            }}
+          >
+            {initialsOf(leader.name)}
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontWeight: 800,
+                fontSize: '1.2rem',
+                color: 'var(--green-ink)',
+              }}
+            >
+              {leader.name} tá na frente!
+            </div>
+            <div style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--green-ink)', marginTop: 2 }}>
+              {leader.validatedDays} de {leader.durationDays} dias validados · sequência de {streakCount} dias
+            </div>
+          </div>
+          <div
+            style={{
+              background: 'var(--card)',
+              borderRadius: 16,
+              padding: '12px 20px',
+              textAlign: 'right',
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--green-ink)' }}
+            >
+              Prêmio em jogo
+            </div>
+            <div
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontWeight: 800,
+                fontSize: '1.4rem',
+                color: 'var(--green-ink)',
+              }}
+            >
+              {formattedPrize}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, alignItems: 'flex-start' }}>
+        <div style={{ flex: '1 1 420px', minWidth: 340 }}>
+          <div style={infoCardStyle}>
+            <div style={cardHeadingStyle}>Classificação</div>
+            <RankingList ranking={ranking} />
+          </div>
+        </div>
+        <div style={{ flex: '1 1 420px', minWidth: 340 }}>
+          <div style={infoCardStyle}>
+            <div style={cardHeadingStyle}>Consistência da turma — últimos 7 dias</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {ranking.participants.map((p) => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      background: 'var(--green)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: 'var(--card)',
+                      fontFamily: '"Baloo 2", system-ui, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '0.72rem',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {initialsOf(p.name)}
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: '0.88rem',
+                      color: 'var(--ink)',
+                      width: 120,
+                      flexShrink: 0,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {p.name}
+                  </div>
+                  <StreakGrid streak={p.streak.slice(-7)} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
