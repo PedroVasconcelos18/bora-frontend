@@ -11,6 +11,9 @@ import { useAuthStore, AuthUser } from '../stores/auth.store';
 import { TabBar } from '../components/TabBar';
 import { ToastContainer } from '../components/Toast';
 import { AppBar } from '../components/AppBar';
+import { WebShell } from '../components/WebShell';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { BREAKPOINTS } from '../lib/breakpoints';
 import { consumePendingInvite, savePendingInvite } from '../lib/pendingInvite';
 
 const queryClient = new QueryClient();
@@ -42,6 +45,10 @@ function AppWithAuth() {
   const navigate = useNavigate();
   const routerState = useRouterState();
   const { user, setUser, clearUser } = useAuthStore();
+  // D-13: structural mobile<->web tree switch, computed at the top of the
+  // component (before any conditional return) per the rules of hooks. Covers
+  // both the isLoading branch and the main return below.
+  const isWeb = useMediaQuery(`(min-width: ${BREAKPOINTS.tablet}px)`);
 
   // Boot-time session hydration — GET /auth/me with credentials
   // 200 → setUser (stay on current route)
@@ -103,6 +110,30 @@ function AppWithAuth() {
   // During initial auth check, render nothing (or a minimal shell)
   // to avoid flash of unauthenticated content on protected routes
   if (isLoading) {
+    if (isWeb) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-block',
+              width: 32,
+              height: 32,
+              border: '3px solid var(--mint-deep)',
+              borderTopColor: 'var(--green)',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+            }}
+          />
+        </div>
+      );
+    }
     return (
       <div className="device">
         <div
@@ -126,6 +157,15 @@ function AppWithAuth() {
           />
         </div>
       </div>
+    );
+  }
+
+  if (isWeb) {
+    return (
+      <>
+        {user && <WebShell />}
+        {!user && <Outlet />}
+      </>
     );
   }
 
