@@ -11,8 +11,12 @@ import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
 import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
 import { RankingList, type RankingData } from '../../components/RankingList';
+import { StreakGrid } from '../../components/StreakGrid';
+import { EvidenceStatusBadge, type EvidenceStatus } from '../../components/EvidenceStatusBadge';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
+
+const R2_PUBLIC_BASE_URL: string = import.meta.env.VITE_R2_PUBLIC_BASE_URL ?? '';
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -59,6 +63,123 @@ interface WaitingRoomStatus {
   participants: { name: string; paid: boolean }[];
 }
 
+// --- Web default-panel helpers (CHALW-01, Task 2) --------------------------
+// Pure, presentational — mirror the module-level helper idiom already used
+// by VoteCard.tsx (VOTE_WINDOW_MS/formatPostedMeta) and ChallengeCard.tsx
+// (formatBRL). No new query/endpoint: these only reshape data already
+// fetched by the route.
+
+interface FeedPreviewItem {
+  key: string;
+  name: string;
+  timeLabel: string;
+  objectKey: string;
+  badgeStatus: EvidenceStatus;
+}
+
+const VOTE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function initialsOf(name: string): string {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
+}
+
+function formatClockTime(date: Date): string {
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatBRL(value: number): string {
+  return value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+// v1.0's Evidence model has no caption/legenda field (objectKey,
+// evidenceDate, status, windowClosesAt, postedAt, resolvedAt only) — the
+// feed preview card intentionally omits a caption line rather than
+// fabricating copy the backend never returns (reuse-only constraint).
+function toBadgeStatus(status: 'PENDING' | 'ACCEPTED' | 'REJECTED'): EvidenceStatus {
+  return status === 'PENDING' ? 'SENT' : status;
+}
+
+const infoCardStyle = {
+  background: 'var(--card)',
+  border: '1px solid var(--line)',
+  borderRadius: 20,
+  padding: 20,
+} as const;
+
+const cardHeadingStyle = {
+  fontFamily: '"Baloo 2", system-ui, sans-serif',
+  fontWeight: 700,
+  fontSize: '1.05rem',
+  color: 'var(--ink)',
+  marginBottom: 12,
+} as const;
+
+const ruleLineStyle = {
+  fontSize: '0.88rem',
+  fontWeight: 600,
+  color: 'var(--ink)',
+} as const;
+
+const linkButtonStyle = {
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  color: 'var(--green)',
+  fontWeight: 700,
+  fontSize: '0.85rem',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+} as const;
+
+const avatarSmallStyle = {
+  width: 28,
+  height: 28,
+  borderRadius: '50%',
+  background: 'var(--green)',
+  display: 'grid',
+  placeItems: 'center',
+  // WEB-05: --card (pure white surface token) reused as the white text
+  // color here — no dedicated "white" token exists in tokens.css, and this
+  // avoids introducing a new bare hex value.
+  color: 'var(--card)',
+  fontFamily: '"Baloo 2", system-ui, sans-serif',
+  fontWeight: 700,
+  fontSize: '0.7rem',
+  flexShrink: 0,
+} as const;
+
+/**
+ * DetailRow — one key/value line in the "Detalhes" info card (Início, Fim,
+ * Colaboração via Pix, Taxa da plataforma). Presentational only.
+ */
+function DetailRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 10,
+        padding: '8px 0',
+        borderBottom: last ? 'none' : '1px solid var(--line)',
+        fontSize: '0.88rem',
+      }}
+    >
+      <span style={{ color: 'var(--muted)', fontWeight: 600 }}>{label}</span>
+      <span style={{ color: 'var(--ink)', fontWeight: 700 }}>{value}</span>
+    </div>
+  );
+}
+
 function ChallengeDetailPage() {
   const { challengeId } = Route.useParams();
   const { user } = useAuthStore();
@@ -98,12 +219,20 @@ function ChallengeDetailPage() {
   // EVID-01/03: the caller's own evidence for today, if any — feeds the
   // "posted-today" state of EvidenceUploadCard. Only relevant once the
   // challenge is ACTIVE (the Hoje tab is only shown then).
-  const { data: todayEvidence } = useQuery<TodayEvidence | null>({
+  //
+  // The `& { postedAt?: string }` widening is a type-only addition (no new
+  // query/endpoint): GET /challenges/:id/evidences/today already returns
+  // the raw Prisma Evidence row (evidences.service.ts's getTodayEvidence),
+  // which includes `postedAt` — EvidenceUploadCard's TodayEvidence type
+  // just doesn't declare it. Reading it here (web feed preview's "hora",
+  // Task 2/CHALW-01) is safe: extra properties on the object are ignored by
+  // EvidenceUploadCard's narrower prop type.
+  const { data: todayEvidence } = useQuery<(TodayEvidence & { postedAt?: string }) | null>({
     queryKey: ['evidence-today', challengeId],
     queryFn: async () => {
       const res = await apiClient.get(`/challenges/${challengeId}/evidences/today`);
       if (!res.ok) throw new Error('evidence-today-error');
-      return (await res.json()) as TodayEvidence | null;
+      return (await res.json()) as (TodayEvidence & { postedAt?: string }) | null;
     },
     enabled: !!challenge && challenge.status === 'ACTIVE',
   });
@@ -834,6 +963,50 @@ function ChallengeDetailPage() {
     maximumFractionDigits: 2,
   });
 
+  // Default panel data (CHALW-01/D-04, Task 2) — reshapes the route's
+  // already-fetched queries only, no new query/endpoint.
+  const turmaParticipants = challenge.participants.map((p) => ({
+    name: p.user.name,
+    paid: p.status === 'PAID' || !!p.paidAt,
+  }));
+  const myStreak = ranking?.participants.find((p) => p.id === myParticipant?.id)?.streak ?? [];
+
+  // Feed preview (D-06): own evidence (if posted) + others' votable
+  // evidences (already excludes own, per the votable-evidences API
+  // contract) — max 3 items, "Ver feed completo" (setPanel('feed'), wired
+  // by Plan 06-03) opens the rest.
+  const feedItems: FeedPreviewItem[] = [];
+  if (todayEvidence) {
+    feedItems.push({
+      key: 'own',
+      name: user?.name ?? 'Você',
+      timeLabel: todayEvidence.postedAt ? formatClockTime(new Date(todayEvidence.postedAt)) : 'Hoje',
+      objectKey: todayEvidence.objectKey,
+      badgeStatus: toBadgeStatus(todayEvidence.status),
+    });
+  }
+  for (const evidence of votableEvidences ?? []) {
+    feedItems.push({
+      key: evidence.id,
+      name: evidence.authorName,
+      timeLabel: formatClockTime(new Date(new Date(evidence.windowClosesAt).getTime() - VOTE_WINDOW_MS)),
+      objectKey: evidence.objectKey,
+      badgeStatus: toBadgeStatus(evidence.status),
+    });
+  }
+  const feedPreviewItems = feedItems.slice(0, 3);
+
+  // Votação aberta teaser (omitted entirely when N === 0, per D-04).
+  const votableCount = votableEvidences?.length ?? 0;
+  const earliestWindowCloses =
+    votableEvidences && votableEvidences.length > 0
+      ? votableEvidences.reduce(
+          (earliest, e) => (new Date(e.windowClosesAt) < new Date(earliest) ? e.windowClosesAt : earliest),
+          votableEvidences[0].windowClosesAt,
+        )
+      : null;
+  const formattedVoteDeadline = earliestWindowCloses ? formatClockTime(new Date(earliestWindowCloses)) : null;
+
   return (
     <div>
       {/* Shared web header (D-01) — back-link, emoji tile, title, StatusPill,
@@ -948,9 +1121,180 @@ function ChallengeDetailPage() {
         </div>
       </div>
 
-      {/* Panel region — only 'default' is implemented by this plan (Task 2
-          fills in the 3-column layout below). */}
-      <div>{/* Task 2 replaces this placeholder with the default 3-column layout */}</div>
+      {/* Panel region — only 'default' is implemented by this plan (CHALW-01,
+          D-04). Any other panel value currently falls through to this same
+          layout until Plan 06-03 adds the votar/feed/ranking branches. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, alignItems: 'flex-start' }}>
+        {/* Column 1 — info: Regras do jogo / Detalhes / A turma / Sua sequência */}
+        <div
+          style={{
+            flex: '1 1 290px',
+            minWidth: 260,
+            maxWidth: 320,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 18,
+          }}
+        >
+          <div style={infoCardStyle}>
+            <div style={cardHeadingStyle}>Regras do jogo</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={ruleLineStyle}>📸 1 foto por dia, dentro do dia</div>
+              <div style={ruleLineStyle}>🗳️ A turma valida em até 24h</div>
+              <div style={ruleLineStyle}>🏆 Quem mais cumprir leva o prêmio</div>
+              <div style={ruleLineStyle}>🤝 Empate divide entre os líderes</div>
+            </div>
+          </div>
+
+          <div style={infoCardStyle}>
+            <div style={cardHeadingStyle}>Detalhes</div>
+            <DetailRow label="Início" value={formattedStart} />
+            <DetailRow label="Fim" value={formattedEnd} />
+            <DetailRow label="Colaboração via Pix" value={formatBRL(collab)} />
+            <DetailRow label="Taxa da plataforma" value={formatBRL(fee)} last />
+          </div>
+
+          <div style={infoCardStyle}>
+            <div style={cardHeadingStyle}>A turma</div>
+            <WaitingRoomList participants={turmaParticipants} />
+          </div>
+
+          <div style={infoCardStyle}>
+            <div style={cardHeadingStyle}>Sua sequência</div>
+            <StreakGrid streak={myStreak} />
+          </div>
+        </div>
+
+        {/* Column 2 — hoje + feed */}
+        <div style={{ flex: '2 1 420px', minWidth: 320, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div>
+            <div style={{ ...cardHeadingStyle, marginBottom: 10 }}>Hoje</div>
+            <EvidenceUploadCard
+              challengeId={challenge.id}
+              isPaid={myParticipant?.status === 'PAID'}
+              todayEvidence={todayEvidence}
+              onUploaded={() => {
+                void queryClient.invalidateQueries({ queryKey: ['evidence-today', challengeId] });
+                // D-09: same immediate-invalidation pattern as the mobile
+                // Hoje tab — the acting user's own streak feeds RANK-03.
+                void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
+              }}
+            />
+          </div>
+
+          <div style={infoCardStyle}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ ...cardHeadingStyle, marginBottom: 0 }}>Feed da turma — hoje</div>
+              <button type="button" onClick={() => setPanel('feed')} style={linkButtonStyle}>
+                Ver feed completo →
+              </button>
+            </div>
+
+            {feedPreviewItems.length === 0 ? (
+              <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.85rem', margin: 0 }}>
+                Ninguém postou ainda hoje.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {feedPreviewItems.map((item) => (
+                  <div
+                    key={item.key}
+                    style={{
+                      background: 'var(--card)',
+                      border: '1px solid var(--line)',
+                      borderRadius: 18,
+                      padding: 14,
+                      display: 'flex',
+                      gap: 14,
+                    }}
+                  >
+                    <img
+                      src={`${R2_PUBLIC_BASE_URL}/${encodeURIComponent(item.objectKey)}`}
+                      alt={`Evidência de ${item.name}`}
+                      style={{ width: 150, height: 112, objectFit: 'cover', borderRadius: 12, flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={avatarSmallStyle}>{initialsOf(item.name)}</div>
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: '0.88rem',
+                              color: 'var(--ink)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.name}
+                          </div>
+                          <div style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--muted)' }}>
+                            {item.timeLabel}
+                          </div>
+                        </div>
+                      </div>
+                      <EvidenceStatusBadge status={item.badgeStatus} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Column 3 — ranking (compact) + Votação aberta teaser */}
+        <div
+          style={{
+            flex: '1 1 300px',
+            minWidth: 280,
+            maxWidth: 320,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 18,
+          }}
+        >
+          <div style={infoCardStyle}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ ...cardHeadingStyle, marginBottom: 0 }}>Ranking</div>
+              <button type="button" onClick={() => setPanel('ranking')} style={linkButtonStyle}>
+                Ver placar completo →
+              </button>
+            </div>
+            {ranking && <RankingList ranking={ranking} />}
+          </div>
+
+          {votableCount > 0 && (
+            <div style={{ background: 'var(--mint)', borderRadius: 18, padding: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--green-ink)' }}>
+                🗳️ {votableCount} evidências esperando seu voto
+              </div>
+              {formattedVoteDeadline && (
+                <div style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--muted)', marginTop: 4 }}>
+                  Janela fecha hoje às {formattedVoteDeadline}
+                </div>
+              )}
+              <button type="button" onClick={() => setPanel('votar')} style={{ ...linkButtonStyle, marginTop: 10 }}>
+                Votar agora →
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
