@@ -35,13 +35,10 @@ function PayPage() {
     pixKey,
     setPixKey,
     challengeSummary,
+    isError,
+    errorMessage,
+    retry,
   } = usePixPayment({ challengeId: challengeIdParam, token });
-
-  useEffect(() => {
-    if (!user) {
-      void navigate({ to: '/login' });
-    }
-  }, [user, navigate]);
 
   const challengeId = charge?.challengeId ?? challengeIdParam;
   const navigatedToChallengeRef = useRef(false);
@@ -247,6 +244,47 @@ function PayPage() {
             </div>
           </>
         )
+      )}
+
+      {isError && !charge && (
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <span
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: 'var(--card)',
+              border: '2px solid var(--coral)',
+              display: 'inline-grid',
+              placeItems: 'center',
+              fontSize: '2rem',
+              marginBottom: 12,
+            }}
+          >
+            😕
+          </span>
+          <h3
+            style={{
+              fontFamily: '"Baloo 2", system-ui, sans-serif',
+              fontWeight: 800,
+              fontSize: '1.4rem',
+              color: 'var(--coral)',
+            }}
+          >
+            Não rolou gerar o Pix
+          </h3>
+          <p style={{ color: 'var(--muted)', fontWeight: 600, marginTop: 8 }}>
+            A gente não conseguiu criar a cobrança agora. Nada foi cobrado — tenta de novo em instantes.
+          </p>
+          {errorMessage && (
+            <p style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 4 }}>{errorMessage}</p>
+          )}
+          <div style={{ marginTop: 16 }}>
+            <PrimaryButton onClick={retry} loading={chargeMutation.isPending} disabled={chargeMutation.isPending}>
+              Tentar de novo
+            </PrimaryButton>
+          </div>
+        </div>
       )}
 
       <DisclaimerFooter />
