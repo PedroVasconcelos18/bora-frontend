@@ -1,10 +1,12 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useAuthStore } from '../../stores/auth.store';
 import { EmojiPicker } from '../../components/EmojiPicker';
 import { PrizeCalculator } from '../../components/PrizeCalculator';
+import { ChallengePreview } from '../../components/ChallengePreview';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { CopyableInviteLink } from '../../components/CopyableInviteLink';
 import { showToast } from '../../components/Toast';
@@ -39,6 +41,7 @@ interface CreateChallengeResponse {
 function NewChallengePage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [selectedEmoji, setSelectedEmoji] = useState('🏋️');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copyableLinks, setCopyableLinks] = useState<InviteLink[]>([]);
@@ -53,9 +56,11 @@ function NewChallengePage() {
     },
   });
 
-  // Watch for live prize calculator updates
+  // Watch for live prize calculator + preview updates (D-08 — no network call)
   const inviteesText = watch('inviteesText');
   const collabAmount = watch('collabAmount');
+  const watchedTitle = watch('title');
+  const watchedDuration = watch('durationDays');
 
   // D-02/D-03: computed unconditionally (before any early return) so the
   // rules of hooks stay satisfied regardless of which branch is taken —
@@ -112,8 +117,20 @@ function NewChallengePage() {
 
       const body = (await res.json()) as CreateChallengeResponse;
       showToast('Desafio criado! Convites enviados ✉️');
-      setCopyableLinks(body.copyableLinks ?? []);
-      setCreatedChallengeId(body.id);
+
+      if (isWeb) {
+        // Web hand-off (D-23/UI-SPEC "Hand-off do CopyableInviteLink"): GET
+        // /challenges/:id never returns copyableLinks (only POST /challenges
+        // does) — seed the query cache the waiting room reads
+        // (['invite-links', challengeId], enabled:false) and navigate
+        // straight there instead of rendering the mobile success screen.
+        // Consumed by plan 07-05's waiting room.
+        queryClient.setQueryData(['invite-links', body.id], body.copyableLinks ?? []);
+        void navigate({ to: '/challenges/$challengeId', params: { challengeId: body.id } });
+      } else {
+        setCopyableLinks(body.copyableLinks ?? []);
+        setCreatedChallengeId(body.id);
+      }
     } catch {
       showToast('Erro ao criar desafio. Tente novamente.');
     } finally {
@@ -587,7 +604,7 @@ function NewChallengePage() {
             </div>
           </div>
 
-          {/* RIGHT — calculator + submit (live preview added in a later pass) */}
+          {/* RIGHT — live preview + calculator + submit */}
           <div
             style={{
               flex: '1 1 340px',
@@ -598,6 +615,16 @@ function NewChallengePage() {
               gap: 18,
             }}
           >
+            {/* Live preview (D-08) — fed from the SAME watch() values above,
+                no network call, re-renders on every keystroke. */}
+            <ChallengePreview
+              title={watchedTitle}
+              emoji={selectedEmoji}
+              durationDays={Number(watchedDuration) || 0}
+              collabAmount={Number(collabAmount) || 0}
+              userName={user.name}
+            />
+
             <PrizeCalculator
               emailsText={inviteesText}
               collabAmount={Number(collabAmount) || 0}
