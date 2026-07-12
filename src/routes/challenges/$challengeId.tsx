@@ -131,6 +131,17 @@ function formatBRL(value: number): string {
   });
 }
 
+// Premiação celebration banner (FUN-08, Plan 07-05 Task 3): joins tied
+// leader names the same way RankingList's own (unexported) formatNames does
+// — "A", "A e B", "A, B e C" — so the "{Nome} levou!" copy reads naturally
+// even in a multi-way tie.
+function formatLeaderNames(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} e ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+}
+
 // v1.0's Evidence model has no caption/legenda field (objectKey,
 // evidenceDate, status, windowClosesAt, postedAt, resolvedAt only) — the
 // feed preview card intentionally omits a caption line rather than
@@ -1169,16 +1180,289 @@ function ChallengeDetailPage() {
       );
     }
 
-    return (
-      <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        {challenge.status === 'FINISHED' && (
-          <div style={{ marginBottom: 16 }}>
-            {myPayout && <WinnerBanner payout={myPayout} />}
-            <RankingPanel isLoading={isRankingLoading} ranking={ranking} />
+    if (challenge.status === 'FINISHED') {
+      // Locally scoped (not hoisted) so this never touches the ACTIVE web
+      // panel's own startsAtDate/endsAtDate declarations further below
+      // (D-22 — that panel stays untouched).
+      const startsAtDate = challenge.startsAt ? new Date(challenge.startsAt) : null;
+      const endsAtDate = startsAtDate
+        ? new Date(startsAtDate.getTime() + (challenge.durationDays - 1) * 24 * 60 * 60 * 1000)
+        : null;
+      const formattedEnd = endsAtDate
+        ? endsAtDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : '—';
+
+      const winnerParticipant = ranking?.participants.find((p) => p.isLeader);
+      const winnerDisplayName = formatLeaderNames(ranking?.leaders ?? []);
+      const winnerInitials = winnerDisplayName ? initialsOf(winnerDisplayName) : '';
+      const validatedDaysWinner = winnerParticipant?.validatedDays ?? 0;
+      const durationDaysWinner = winnerParticipant?.durationDays ?? challenge.durationDays;
+      const formattedPrizeFinished = ranking ? formatBRL(parseFloat(ranking.prize)) : formatBRL(prize);
+
+      return (
+        <div>
+          {/* Header — no prize-tile (the prize lives in the celebration
+              banner below, not the header, unlike the ACTIVE panel). */}
+          <div style={{ marginBottom: 18 }}>
+            <Link
+              to="/home"
+              style={{
+                color: 'var(--muted)',
+                fontWeight: 700,
+                fontSize: '0.92rem',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                marginBottom: 10,
+              }}
+            >
+              ← Seus desafios
+            </Link>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
+                  background: 'var(--mint)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: '1.8rem',
+                  flexShrink: 0,
+                }}
+              >
+                {challenge.emoji}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <h1
+                    style={{
+                      fontFamily: '"Baloo 2", system-ui, sans-serif',
+                      fontWeight: 800,
+                      fontSize: '1.6rem',
+                      lineHeight: 1.1,
+                      color: 'var(--green-ink)',
+                      margin: 0,
+                    }}
+                  >
+                    {challenge.title}
+                  </h1>
+                  <StatusPill status={challenge.status} />
+                </div>
+                <div style={{ marginTop: 4, fontSize: '0.88rem', fontWeight: 600, color: 'var(--muted)' }}>
+                  Encerrado em {formattedEnd} · {challenge.durationDays} dias · {participantCount} pessoas
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
-    );
+
+          {isRankingLoading || !ranking ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 32,
+                  height: 32,
+                  border: '3px solid var(--mint-deep)',
+                  borderTopColor: 'var(--green)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite',
+                }}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Celebration banner — vencedor(a) + dias validados + prêmio */}
+              <div
+                style={{
+                  background: 'var(--mint)',
+                  borderRadius: 22,
+                  padding: '26px 30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 20,
+                  flexWrap: 'wrap',
+                  marginBottom: 22,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <span style={{ fontSize: '2.8rem' }} aria-hidden="true">
+                    🎉
+                  </span>
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: '50%',
+                      background: 'var(--green)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      // WEB-05: var(--card) reused as white text over the
+                      // green avatar fill — no dedicated "white" token
+                      // exists (same resolution as avatarSmallStyle above).
+                      color: 'var(--card)',
+                      fontFamily: '"Baloo 2", system-ui, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '1.1rem',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {winnerInitials}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: '"Baloo 2", system-ui, sans-serif',
+                        fontWeight: 800,
+                        fontSize: '1.5rem',
+                        color: 'var(--green-ink)',
+                      }}
+                    >
+                      {winnerDisplayName} levou! 🏆
+                    </div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--green-ink)', marginTop: 4 }}>
+                      {validatedDaysWinner} de {durationDaysWinner} dias validados — que consistência
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    marginLeft: 'auto',
+                    background: 'var(--card)',
+                    borderRadius: 16,
+                    padding: '14px 22px',
+                    textAlign: 'right',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: 'var(--green-ink)',
+                    }}
+                  >
+                    Prêmio
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: '"Baloo 2", system-ui, sans-serif',
+                      fontWeight: 800,
+                      fontSize: '1.5rem',
+                      color: 'var(--green-ink)',
+                    }}
+                  >
+                    {formattedPrizeFinished}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, alignItems: 'flex-start' }}>
+                {/* LEFT — Como a turma terminou (full rich ranking, D-23:
+                    reuses RankingList directly, not the whole
+                    DesktopRankingPanel — see plan's composition decision). */}
+                <div style={{ flex: '2 1 480px', minWidth: 320, ...infoCardStyle }}>
+                  <div style={cardHeadingStyle}>Como a turma terminou</div>
+                  <RankingList ranking={ranking} />
+                </div>
+
+                {/* RIGHT — E agora? (read-only status card, D-15/D-16) */}
+                <div
+                  style={{
+                    flex: '1 1 340px',
+                    minWidth: 300,
+                    maxWidth: 420,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 18,
+                  }}
+                >
+                  <div style={infoCardStyle}>
+                    <div style={cardHeadingStyle}>E agora?</div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 10,
+                        alignItems: 'flex-start',
+                        paddingBottom: 12,
+                        borderBottom: '1px solid var(--line)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: '50%',
+                          background: 'var(--mint)',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: '0.8rem',
+                          flexShrink: 0,
+                        }}
+                        aria-hidden="true"
+                      >
+                        ✓
+                      </span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)' }}>
+                          Desafio encerrado
+                        </div>
+                        <div style={{ fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>
+                          Votações fechadas em {formattedEnd}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 0' }}>
+                      <span
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: '50%',
+                          background: 'var(--mint)',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: '0.8rem',
+                          flexShrink: 0,
+                        }}
+                        aria-hidden="true"
+                      >
+                        ●
+                      </span>
+                      {myPayout ? (
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)' }}>
+                          {myPayout.status === 'PAYOUT_PENDING'
+                            ? `🏆 Você venceu! Prêmio ${formatBRL(parseFloat(myPayout.amount))} — pendente ⏳`
+                            : '🏆 Prêmio enviado ✅'}
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)' }}>
+                            Prêmio a ser transferido pelo criador
+                          </div>
+                          <div style={{ fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>
+                            O criador transfere o prêmio pra {winnerDisplayName} via Pix — no V1 o cash-out é
+                            manual.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {/* D-16: no "mark payout as transferred" control here —
+                        that is an admin action (Fase 10), not the creator's. */}
+                  </div>
+                  {/* D-16: no rematch/"do it again" card — that capability
+                      is new and not built in this phase. */}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    return null;
   }
 
   // ACTIVE, web: shared header (D-01) + panel region. Only 'default' is
