@@ -1,5 +1,4 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth.store';
 import { apiClient } from '../api/client';
@@ -34,12 +33,6 @@ interface Challenge {
 function HomePage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!user) {
-      void navigate({ to: '/login' });
-    }
-  }, [user, navigate]);
 
   // Fetch challenges via GET /challenges
   const { data: challenges, isLoading } = useQuery<Challenge[]>({

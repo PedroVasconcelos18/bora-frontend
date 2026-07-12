@@ -1,6 +1,5 @@
-import { useNavigate } from '@tanstack/react-router';
-import { apiClient } from '../api/client';
 import { useAuthStore } from '../stores/auth.store';
+import { useLogout } from '../hooks/useLogout';
 
 /**
  * AppBar — sticky top navigation following referencia.html .appbar.
@@ -9,18 +8,8 @@ import { useAuthStore } from '../stores/auth.store';
  * Right: user initials avatar + "Sair" logout button
  */
 export function AppBar() {
-  const { user, clearUser } = useAuthStore();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    try {
-      await apiClient.delete('/auth/logout');
-    } catch {
-      // Ignore errors — clear client state regardless
-    }
-    clearUser();
-    void navigate({ to: '/login' });
-  };
+  const { user } = useAuthStore();
+  const handleLogout = useLogout();
 
   if (!user) return null;
 

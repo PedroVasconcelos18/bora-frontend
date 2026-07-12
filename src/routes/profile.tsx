@@ -1,5 +1,4 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth.store';
 import { apiClient } from '../api/client';
@@ -7,6 +6,7 @@ import { NotBetBlock } from '../components/NotBetBlock';
 import { ChallengeCard } from '../components/ChallengeCard';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../lib/breakpoints';
+import { useLogout } from '../hooks/useLogout';
 
 export const Route = createFileRoute('/profile')({
   component: ProfilePage,
@@ -35,14 +35,9 @@ interface Challenge {
 }
 
 function ProfilePage() {
-  const { user, clearUser } = useAuthStore();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!user) {
-      void navigate({ to: '/login' });
-    }
-  }, [user, navigate]);
+  const handleLogout = useLogout();
 
   // PROF-01: server-computed stats (D-12) — never client-side aggregation.
   const { data: stats } = useQuery<ProfileStats>({
@@ -76,16 +71,6 @@ function ProfilePage() {
 
   const activeCount = stats?.activeChallenges ?? 0;
   const validatedDays = stats?.validatedDays ?? 0;
-
-  const handleLogout = async () => {
-    try {
-      await apiClient.delete('/auth/logout');
-    } catch {
-      // ignore — session cleared client-side regardless
-    }
-    clearUser();
-    void navigate({ to: '/login' });
-  };
 
   if (!isWeb) {
     return (

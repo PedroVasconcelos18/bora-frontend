@@ -260,12 +260,6 @@ function ChallengeDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!user) {
-      void navigate({ to: '/login' });
-    }
-  }, [user, navigate]);
-
   const { data: challenge, isLoading, isError } = useQuery<ChallengeDetail>({
     queryKey: ['challenge', challengeId],
     queryFn: async () => {

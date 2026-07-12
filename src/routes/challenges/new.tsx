@@ -67,10 +67,7 @@ function NewChallengePage() {
   // same pattern as home.tsx/$challengeId.tsx.
   const isWeb = useMediaQuery(`(min-width: ${BREAKPOINTS.tablet}px)`);
 
-  if (!user) {
-    void navigate({ to: '/login' });
-    return null;
-  }
+  if (!user) return null;
 
   const onSubmit = async (data: ChallengeFormData) => {
     // Frontend validation — same rules as backend, shown as toasts (verbatim from Copywriting Contract)

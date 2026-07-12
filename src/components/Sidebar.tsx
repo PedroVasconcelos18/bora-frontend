@@ -1,6 +1,6 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { apiClient } from '../api/client';
 import { useAuthStore } from '../stores/auth.store';
+import { useLogout } from '../hooks/useLogout';
 import { PrimaryButton } from './PrimaryButton';
 
 /**
@@ -8,26 +8,17 @@ import { PrimaryButton } from './PrimaryButton';
  * tokens. Replaces AppBar/TabBar from 768px up (WEB-02/WEB-04); those stay
  * mobile chrome, reference-only. Markup/values are design-confirmed from the
  * canvas "Bora Web.dc.html" (turn 1a Dashboard) — D-07..D-12, literal, not
- * rounded. Logout + initials logic copied verbatim from AppBar.tsx; the
- * active-route predicate copied verbatim from TabBar.tsx.
+ * rounded. Logout funnels through the shared useLogout() authority (07-06);
+ * the active-route predicate copied verbatim from TabBar.tsx.
  */
 export function Sidebar() {
-  const { user, clearUser } = useAuthStore();
+  const { user } = useAuthStore();
   const navigate = useNavigate();
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
+  const handleLogout = useLogout();
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
-
-  const handleLogout = async () => {
-    try {
-      await apiClient.delete('/auth/logout');
-    } catch {
-      // Ignore errors — clear client state regardless
-    }
-    clearUser();
-    void navigate({ to: '/login' });
-  };
 
   if (!user) return null;
 

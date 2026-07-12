@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../stores/auth.store';
 import { FormField } from '../components/FormField';
@@ -26,6 +27,7 @@ export const Route = createFileRoute('/signup')({
 
 function SignupPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, setUser } = useAuthStore();
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -66,6 +68,9 @@ function SignupPage() {
         // Navigation is owned by the mount effect above (fires once on the
         // null -> set transition) — do not navigate here to avoid a double-consume race.
         setUser(body.user);
+        // Seed the ['auth-me'] cache to agree with the store (07-06) — keeps
+        // the boot-hydration query from holding a stale boot-time null.
+        queryClient.setQueryData(['auth-me'], { user: body.user });
       } else if (res.status === 409) {
         setServerError('Este e-mail já tem uma conta. Faça login.');
       } else if (res.status === 400) {
