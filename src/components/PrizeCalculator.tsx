@@ -1,3 +1,5 @@
+import { parseInvitees, computePrize, PLATFORM_FEE } from '../lib/prize';
+
 /**
  * PrizeCalculator — live prize preview following referencia.html .summary.
  *
@@ -5,7 +7,8 @@
  * Pure client-side math — NO fetch/apiClient call.
  * Updates on every input event; clamped to R$ 0 minimum.
  *
- * Email count: split textarea by newline, trim, filter empty strings.
+ * Parse + formula live in src/lib/prize.ts — the same module ChallengePreview
+ * consumes, so the two can no longer drift apart (UAT gap 6).
  */
 
 interface PrizeCalculatorProps {
@@ -23,15 +26,12 @@ function formatBRL(value: number): string {
 }
 
 export function PrizeCalculator({ emailsText, collabAmount }: PrizeCalculatorProps) {
-  const emails = emailsText
-    .split('\n')
-    .map((e) => e.trim())
-    .filter(Boolean);
+  const emails = parseInvitees(emailsText);
 
   const invitees = emails.length;
   const totalParticipants = invitees + 1; // +1 for creator
-  const platformFee = 10;
-  const estimatedPrize = Math.max(0, totalParticipants * collabAmount - platformFee);
+  const platformFee = PLATFORM_FEE;
+  const estimatedPrize = computePrize(totalParticipants, collabAmount, platformFee);
 
   return (
     <div

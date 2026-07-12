@@ -12,6 +12,7 @@ import { CopyableInviteLink } from '../../components/CopyableInviteLink';
 import { showToast } from '../../components/Toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
+import { parseInvitees } from '../../lib/prize';
 
 export const Route = createFileRoute('/challenges/new')({
   component: NewChallengePage,
@@ -84,10 +85,7 @@ function NewChallengePage() {
       return;
     }
 
-    const invitees = data.inviteesText
-      .split('\n')
-      .map((e) => e.trim())
-      .filter(Boolean);
+    const invitees = parseInvitees(data.inviteesText);
     if (invitees.length < 2) {
       showToast('Convide pelo menos 2 amigos (mínimo de 3 pessoas).');
       return;
@@ -612,14 +610,17 @@ function NewChallengePage() {
               gap: 18,
             }}
           >
-            {/* Live preview (D-08) — fed from the SAME watch() values above,
-                no network call, re-renders on every keystroke. */}
+            {/* Live preview (D-08) — fed from the same watch() values as the
+                form fields below, no network call, re-renders on every
+                keystroke. participantCount uses the same parseInvitees +1
+                derivation as PrizeCalculator so the two agree (UAT gap 6). */}
             <ChallengePreview
               title={watchedTitle}
               emoji={selectedEmoji}
               durationDays={Number(watchedDuration) || 0}
               collabAmount={Number(collabAmount) || 0}
               userName={user.name}
+              participantCount={parseInvitees(inviteesText).length + 1}
             />
 
             <PrizeCalculator

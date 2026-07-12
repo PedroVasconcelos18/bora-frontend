@@ -1,4 +1,5 @@
 import { StatusPill } from './StatusPill';
+import { computePrize, PLATFORM_FEE } from '../lib/prize';
 
 /**
  * ChallengePreview — "Preview — como a turma vai ver" live card (D-08, FUN-04).
@@ -10,6 +11,10 @@ import { StatusPill } from './StatusPill';
  * D-08 explicitly permits this simplification if full ChallengeCard fidelity
  * is costly; a plain <div> avoids a clickable-looking element that does
  * nothing.
+ *
+ * `participantCount` and prize both come from `src/lib/prize.ts`, the same
+ * module `PrizeCalculator` consumes — the two must never derive the same
+ * quantity independently again (UAT gap 6).
  */
 
 interface ChallengePreviewProps {
@@ -19,6 +24,7 @@ interface ChallengePreviewProps {
   collabAmount: number;
   platformFee?: number;
   userName: string;
+  participantCount: number;
 }
 
 function formatBRL(value: number): string {
@@ -35,12 +41,14 @@ export function ChallengePreview({
   emoji,
   durationDays,
   collabAmount,
-  platformFee = 10,
+  platformFee = PLATFORM_FEE,
   userName,
+  participantCount,
 }: ChallengePreviewProps) {
-  // Decoration only — the challenge does not exist yet, so the preview
-  // shows just the creator ("você") as the sole confirmed participant.
-  const estimatedPrize = Math.max(0, collabAmount - platformFee);
+  // The challenge does not exist yet, so the preview shows the INTENDED
+  // turma (creator + invitees) — it must agree with PrizeCalculator, which
+  // renders directly below it and derives from the same shared helper.
+  const estimatedPrize = computePrize(participantCount, collabAmount, platformFee);
 
   return (
     <div>
@@ -93,7 +101,7 @@ export function ChallengePreview({
               {title.trim() || 'Seu desafio'}
             </div>
             <div style={{ fontSize: '0.82rem', color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>
-              Aguardando · {durationDays || 0} dias · 1 pessoa
+              Aguardando · {durationDays || 0} dias · {participantCount} pessoa{participantCount !== 1 ? 's' : ''}
             </div>
           </div>
 
