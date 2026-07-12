@@ -1,13 +1,12 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../api/client';
+import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../../stores/auth.store';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { FormField } from '../../components/FormField';
 import { DisclaimerFooter } from '../../components/DisclaimerFooter';
 import { showToast } from '../../components/Toast';
+import { usePixPayment, CopiaECola } from '../../components/PixPaymentCore';
 
 interface PaySearch {
   challengeId?: string;
@@ -22,35 +21,21 @@ export const Route = createFileRoute('/participants/pay')({
   }),
 });
 
-interface ChargeResult {
-  qrCode: string;
-  qrCodeBase64: string;
-  ticketUrl: string;
-  expiresAt: string;
-  paymentId: string;
-  participantId: string;
-  challengeId: string;
-}
-
-interface ChallengeSummary {
-  title: string;
-  emoji: string;
-  collabAmount: string;
-}
-
-interface PaymentStatus {
-  participantStatus: string;
-  paymentStatus: string | null;
-  challengeStatus: string;
-}
-
 function PayPage() {
   const { challengeId: challengeIdParam, token } = Route.useSearch();
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const [pixKey, setPixKey] = useState('');
-  const [charge, setCharge] = useState<ChargeResult | null>(null);
-  const firedOnce = useRef(false);
+
+  const {
+    charge,
+    status,
+    isPaid,
+    isChallengeActive,
+    chargeMutation,
+    pixKey,
+    setPixKey,
+    challengeSummary,
+  } = usePixPayment({ challengeId: challengeIdParam, token });
 
   useEffect(() => {
     if (!user) {
@@ -58,73 +43,14 @@ function PayPage() {
     }
   }, [user, navigate]);
 
-  // Both the invitee ("aceitar e pagar") and creator ("pagar minha entrada")
-  // paths converge on the same charge request here (D-06) — only the target
-  // path + body shape differ depending on whether we arrived via an invite token.
-  const chargeMutation = useMutation({
-    mutationFn: async (key: string | undefined) => {
-      const path = token ? `/invites/${token}/accept-and-pay` : '/participants/me/pay';
-      const body = token
-        ? { pixKey: key || undefined }
-        : { challengeId: challengeIdParam, pixKey: key || undefined };
-      const res = await apiClient.post(path, body);
-      if (!res.ok) {
-        const errBody = (await res.json().catch(() => ({}))) as { message?: string };
-        throw new Error(errBody.message ?? 'Erro ao gerar cobrança Pix. Tente novamente.');
-      }
-      return (await res.json()) as ChargeResult;
-    },
-    onSuccess: (data) => {
-      setCharge(data);
-    },
-    onError: (err: Error) => {
-      showToast(err.message ?? 'Erro ao gerar cobrança Pix.');
-    },
-  });
-
-  // Fire the initial charge exactly once on mount (per plan: "on mount it
-  // POSTs to the charge endpoint"). Regeneration (D-08) reuses the same
-  // mutation with whatever pixKey the user has typed since.
-  useEffect(() => {
-    if (!user || firedOnce.current) return;
-    if (!challengeIdParam && !token) return;
-    firedOnce.current = true;
-    chargeMutation.mutate(undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, challengeIdParam, token]);
-
   const challengeId = charge?.challengeId ?? challengeIdParam;
-
-  const { data: challengeSummary } = useQuery<ChallengeSummary>({
-    queryKey: ['challenge-summary', challengeId],
-    queryFn: async () => {
-      const res = await apiClient.get(`/challenges/${challengeId}`);
-      if (!res.ok) throw new Error('challenge-not-found');
-      return (await res.json()) as ChallengeSummary;
-    },
-    enabled: !!challengeId,
-    retry: false,
-  });
-
-  const { data: status } = useQuery<PaymentStatus>({
-    queryKey: ['payment-status', charge?.participantId],
-    queryFn: async () => {
-      const res = await apiClient.get(`/participants/${charge!.participantId}/payment-status`);
-      if (!res.ok) throw new Error('status-error');
-      return (await res.json()) as PaymentStatus;
-    },
-    enabled: !!charge?.participantId,
-    // Stop polling once the webhook has confirmed the payment (APPROVED) —
-    // there is nothing left to wait for from this screen's point of view.
-    refetchInterval: (query) => (query.state.data?.paymentStatus === 'APPROVED' ? false : 4000),
-  });
-
-  const isChallengeActive = status?.challengeStatus === 'ACTIVE';
   const navigatedToChallengeRef = useRef(false);
 
   // When the paid participant is the one who filled the group (CHAL-06), the
   // challenge auto-transitions to ACTIVE — surface that and hand off to the
   // challenge detail screen instead of leaving the participant stuck here.
+  // This is a route-level concern (navigate side-effect) that stays out of
+  // the shared usePixPayment hook — PixOverlay (web) does NOT navigate.
   useEffect(() => {
     if (!isChallengeActive || !challengeId || navigatedToChallengeRef.current) return;
     navigatedToChallengeRef.current = true;
@@ -160,8 +86,6 @@ function PayPage() {
       </section>
     );
   }
-
-  const isPaid = status?.paymentStatus === 'APPROVED';
 
   return (
     <section
@@ -327,78 +251,5 @@ function PayPage() {
 
       <DisclaimerFooter />
     </section>
-  );
-}
-
-function CopiaECola({ qrCode }: { qrCode: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(qrCode);
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = qrCode;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    }
-    setCopied(true);
-    showToast('Código copiado!');
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div
-      style={{
-        background: 'var(--mint)',
-        border: '1px solid var(--mint-deep)',
-        borderRadius: 12,
-        padding: '10px 12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-      }}
-    >
-      <input
-        readOnly
-        value={qrCode}
-        onClick={(e) => e.currentTarget.select()}
-        aria-label="Código Pix copia-e-cola"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          background: 'transparent',
-          border: 'none',
-          outline: 'none',
-          fontSize: '0.78rem',
-          color: 'var(--green-ink)',
-          fontFamily: 'monospace',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => void handleCopy()}
-        style={{
-          background: 'var(--card)',
-          color: 'var(--ink)',
-          border: '2px solid var(--line)',
-          borderRadius: 10,
-          padding: '6px 10px',
-          fontSize: '0.78rem',
-          fontWeight: 700,
-          cursor: 'pointer',
-          whiteSpace: 'nowrap',
-          fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
-          flexShrink: 0,
-        }}
-      >
-        {copied ? '✓ Copiado' : '📋 Copiar código'}
-      </button>
-    </div>
   );
 }
