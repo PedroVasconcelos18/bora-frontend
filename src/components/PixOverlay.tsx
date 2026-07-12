@@ -1,4 +1,5 @@
 import type React from 'react';
+import { useEffect } from 'react';
 import { PrimaryButton } from './PrimaryButton';
 import { FormField } from './FormField';
 import { usePixPayment, CopiaECola } from './PixPaymentCore';
@@ -15,8 +16,10 @@ interface PixOverlayProps {
  *
  * Opens in-place over the waiting room (a dimmed backdrop, NOT a new route,
  * NOT a document.body portal) so the waiting room stays mounted behind it.
- * Renders exactly one state at a time: aguardando / confirmado / expirado.
- * Unlike the mobile route, this component never navigates — it only closes.
+ * Renders exactly one state at a time: aguardando / confirmado / expirado / erro.
+ * The modal is dismissable from EVERY state — backdrop click and ESC both
+ * call onClose unconditionally (gap UAT 07). Unlike the mobile route, this
+ * component never navigates — it only closes.
  */
 export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayProps) {
   const {
@@ -30,6 +33,9 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
     challengeSummary,
     isExpired,
     countdown,
+    isError,
+    errorMessage,
+    retry,
   } = usePixPayment({ challengeId, token });
 
   const displayTitle = challengeSummary?.title ?? title ?? '';
@@ -37,8 +43,23 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
     ? `R$ ${parseFloat(challengeSummary.collabAmount).toFixed(2).replace('.', ',')}`
     : '';
 
+  // DISMISSAL, all states (gap UAT 07): ESC closes the modal unconditionally.
+  // This listener does NOT live inside any state branch — that was the bug.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   return (
     <div
+      onClick={(e) => {
+        // Only close when the click landed on the backdrop itself, not on
+        // something inside the card (event target === current target).
+        if (e.target === e.currentTarget) onClose();
+      }}
       style={{
         position: 'absolute',
         inset: 0,
@@ -269,20 +290,74 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
               Pagar depois
             </a>
           </>
-        ) : (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+        ) : isError ? (
+          <div style={{ textAlign: 'center', padding: '34px 0 0' }}>
             <span
               style={{
-                display: 'inline-block',
-                width: 32,
-                height: 32,
-                border: '3px solid var(--mint-deep)',
-                borderTopColor: 'var(--green)',
+                width: 72,
+                height: 72,
                 borderRadius: '50%',
-                animation: 'spin 0.8s linear infinite',
+                background: 'var(--card)',
+                border: '2px solid var(--coral)',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: '2rem',
+                margin: '0 auto 16px',
               }}
-            />
+            >
+              😕
+            </span>
+            <h2
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontWeight: 800,
+                fontSize: '1.4rem',
+                color: 'var(--coral)',
+                marginBottom: 10,
+              }}
+            >
+              Não rolou gerar o Pix
+            </h2>
+            <p style={{ color: 'var(--muted)', fontWeight: 600, marginBottom: errorMessage ? 4 : 20 }}>
+              A gente não conseguiu criar a cobrança agora. Nada foi cobrado — tenta de novo em instantes.
+            </p>
+            {errorMessage && (
+              <p style={{ color: 'var(--muted)', fontSize: '0.78rem', marginBottom: 20 }}>{errorMessage}</p>
+            )}
+            <PrimaryButton onClick={retry} loading={chargeMutation.isPending} disabled={chargeMutation.isPending}>
+              Tentar de novo
+            </PrimaryButton>
+            <div style={{ marginTop: 14 }}>
+              <a
+                onClick={onClose}
+                style={{
+                  color: 'var(--green)',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                }}
+              >
+                Pagar depois
+              </a>
+            </div>
           </div>
+        ) : (
+          chargeMutation.isPending && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 32,
+                  height: 32,
+                  border: '3px solid var(--mint-deep)',
+                  borderTopColor: 'var(--green)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite',
+                }}
+              />
+            </div>
+          )
         )}
       </div>
     </div>

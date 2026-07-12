@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { useAuthStore } from '../stores/auth.store';
@@ -85,6 +85,19 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, challengeIdParam, token]);
 
+  // retry — re-fires the SAME charge mutation after a failure (gap UAT 07).
+  // TRAP (d), non-negotiable: this must NEVER un-latch `firedOnce` — that ref
+  // is the only thing preventing the mount effect above from re-firing and
+  // issuing a duplicate charge POST, and this core is shared by three call
+  // sites. Retry works by calling `mutate` directly; the mount effect stays
+  // fired-once forever. The isPending guard stops an impatient double-click
+  // from firing two overlapping charges.
+  const retry = useCallback(() => {
+    if (chargeMutation.isPending) return;
+    chargeMutation.mutate(pixKey || undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chargeMutation.isPending, pixKey]);
+
   const challengeId = charge?.challengeId ?? challengeIdParam;
 
   const { data: challengeSummary } = useQuery<ChallengeSummary>({
@@ -163,6 +176,9 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
     challengeSummary,
     isExpired,
     countdown,
+    isError: chargeMutation.isError,
+    errorMessage: chargeMutation.error?.message ?? null,
+    retry,
   };
 }
 
