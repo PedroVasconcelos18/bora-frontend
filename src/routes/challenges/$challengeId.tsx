@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { useAuthStore } from '../../stores/auth.store';
@@ -20,8 +20,25 @@ import { BREAKPOINTS } from '../../lib/breakpoints';
 
 const R2_PUBLIC_BASE_URL: string = import.meta.env.VITE_R2_PUBLIC_BASE_URL ?? '';
 
+// D-13 (Plan 07-05, Task 2): the invite accept-and-pay web nav contract
+// (Plan 07-01's goToPayWeb) lands here with ?token=...&autopay=1. Both
+// fields are OPTIONAL so every existing navigation to this route (home.tsx,
+// new.tsx, profile.tsx, pay.tsx — none of which pass search) keeps
+// typechecking unchanged. `autopay` accepts string/number/boolean at the
+// call site (goToPayWeb passes the literal `1` to match the documented
+// ?autopay=1 URL) — validateSearch normalizes any of those truthy forms.
+interface ChallengeDetailSearch {
+  token?: string;
+  autopay?: string | number | boolean;
+}
+
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
+  validateSearch: (search: Record<string, unknown>): ChallengeDetailSearch => ({
+    token: typeof search.token === 'string' ? search.token : undefined,
+    autopay:
+      search.autopay === '1' || search.autopay === 1 || search.autopay === true ? true : undefined,
+  }),
 });
 
 interface Participant {
@@ -227,6 +244,7 @@ function DetailRow({ label, value, last }: { label: string; value: string; last?
 
 function ChallengeDetailPage() {
   const { challengeId } = Route.useParams();
+  const { token, autopay } = Route.useSearch();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -425,6 +443,26 @@ function ChallengeDetailPage() {
   // this state is hoisted above the early returns below so it stays a
   // stable hook regardless of which status branch is rendered.
   const [pixModalOpen, setPixModalOpen] = useState(false);
+  // D-13 (Plan 07-05, Task 2): tracks WHICH path opened the modal — the
+  // manual "Pagar minha entrada" click (-> me/pay via challengeId) vs. the
+  // ?token=...&autopay=1 accept-and-pay deep-link (-> accept-and-pay via
+  // token) — so PixOverlay always gets the correct prop even though the URL
+  // may still contain ?autopay=1 after the user manually clicks the button.
+  const [pixModalSource, setPixModalSource] = useState<'button' | 'autopay'>('button');
+  const autopayFiredRef = useRef(false);
+
+  // T-07-05-01: fires the accept-and-pay auto-open at most once, and only
+  // once the challenge is confirmed WAITING (never blindly trusts the URL
+  // alone) — the actual authorization of the accept-and-pay charge itself
+  // still happens server-side in the unchanged v1.0 invite endpoint.
+  useEffect(() => {
+    if (autopayFiredRef.current) return;
+    if (isWeb && autopay && token && challenge?.status === 'WAITING') {
+      autopayFiredRef.current = true;
+      setPixModalSource('autopay');
+      setPixModalOpen(true);
+    }
+  }, [isWeb, autopay, token, challenge?.status]);
 
   if (isLoading) {
     return (
@@ -1076,7 +1114,14 @@ function ChallengeDetailPage() {
                   </p>
                   {/* D-12: replaces the mobile navigate-to-/participants/pay
                       call-site — web opens the shared Pix core in-place. */}
-                  <PrimaryButton onClick={() => setPixModalOpen(true)}>Pagar minha entrada</PrimaryButton>
+                  <PrimaryButton
+                    onClick={() => {
+                      setPixModalSource('button');
+                      setPixModalOpen(true);
+                    }}
+                  >
+                    Pagar minha entrada
+                  </PrimaryButton>
                 </div>
               )}
 
@@ -1108,13 +1153,18 @@ function ChallengeDetailPage() {
             </div>
           </div>
 
-          {pixModalOpen && (
-            <PixOverlay
-              challengeId={challenge.id}
-              title={challenge.title}
-              onClose={() => setPixModalOpen(false)}
-            />
-          )}
+          {pixModalOpen &&
+            (pixModalSource === 'autopay' && token ? (
+              // D-13: accept-and-pay path — fires POST /invites/:token/accept-and-pay
+              <PixOverlay token={token} title={challenge.title} onClose={() => setPixModalOpen(false)} />
+            ) : (
+              // Manual "Pagar minha entrada" path — fires POST /participants/me/pay
+              <PixOverlay
+                challengeId={challenge.id}
+                title={challenge.title}
+                onClose={() => setPixModalOpen(false)}
+              />
+            ))}
         </div>
       );
     }
