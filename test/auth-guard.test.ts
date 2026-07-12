@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { isPublicRoute, resolveGuardRedirect } from '../src/lib/authGuard';
+import { isPublicRoute, resolveGuardRedirect, shouldRenderChrome } from '../src/lib/authGuard';
 
 describe('isPublicRoute (07-06)', () => {
   it('is true for public routes', () => {
@@ -60,5 +60,36 @@ describe('resolveGuardRedirect (07-06)', () => {
         pathname: '/login',
       })
     ).toBeNull();
+  });
+});
+
+describe('shouldRenderChrome (07-07)', () => {
+  it('renders chrome for an authenticated user on ordinary protected routes', () => {
+    expect(shouldRenderChrome('/home', true)).toBe(true);
+    expect(shouldRenderChrome('/challenges/abc', true)).toBe(true);
+    expect(shouldRenderChrome('/profile', true)).toBe(true);
+  });
+
+  it('GAP-4: renders bare for an authenticated invitee on /invites', () => {
+    expect(shouldRenderChrome('/invites/abc123', true)).toBe(false);
+  });
+
+  it('renders bare for a logged-out visitor on /invites', () => {
+    expect(shouldRenderChrome('/invites/abc123', false)).toBe(false);
+  });
+
+  it('TRAP (b) REGRESSION LOCK: /admin keeps chrome for an authenticated operator', () => {
+    // /admin is in PUBLIC_ROUTES but is durably occupied by an AUTHENTICATED
+    // operator (env-secret gated, D-11, not by publicness). A blanket
+    // PUBLIC_ROUTES check would wrongly strip its sidebar.
+    expect(shouldRenderChrome('/admin', true)).toBe(true);
+  });
+
+  it('renders bare for a logged-out operator on /admin (secret-entry screen)', () => {
+    expect(shouldRenderChrome('/admin', false)).toBe(false);
+  });
+
+  it('renders bare for a logged-out visitor on /login', () => {
+    expect(shouldRenderChrome('/login', false)).toBe(false);
   });
 });

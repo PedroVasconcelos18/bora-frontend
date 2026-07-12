@@ -31,6 +31,32 @@ export function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
 }
 
+// Routes that stay chrome-free even for a signed-in visitor (07-07, UAT gap 4).
+// Deliberately NARROW — exactly one entry — rather than "every PUBLIC_ROUTES
+// entry": '/admin' is also public but IS durably occupied by an AUTHENTICATED
+// operator (gated by an env secret, AdminGuard, D-11 — not by publicness), so a
+// blanket PUBLIC_ROUTES check here would wrongly strip its sidebar (TRAP b).
+// '/login' and '/signup' are never durably occupied by an authenticated visitor
+// either — their own effects (login.tsx/signup.tsx) bounce an authed visitor
+// away on mount. '/invites' is the only route where an authenticated visitor
+// legitimately sits on a public page (accepting an invite while already logged
+// in, correct-email or wrong-email state).
+export const BARE_WHEN_AUTHED = ['/invites'];
+
+/**
+ * shouldRenderChrome — the chrome-render policy (07-07, UAT gap 4).
+ *
+ * The chrome decision must be driven by route PUBLICNESS, not by `user`
+ * truthiness alone. A logged-out visitor never gets chrome (today's
+ * behaviour, preserved). A logged-in visitor gets chrome EXCEPT on the
+ * narrow BARE_WHEN_AUTHED list (currently just '/invites').
+ */
+export function shouldRenderChrome(pathname: string, isAuthed: boolean): boolean {
+  if (!isAuthed) return false;
+  if (BARE_WHEN_AUTHED.some((route) => pathname.startsWith(route))) return false;
+  return true;
+}
+
 export interface GuardInput {
   status: AuthStatus;
   user: Pick<AuthUser, 'id'> | null;
