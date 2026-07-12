@@ -6,6 +6,8 @@ import { useAuthStore } from '../../stores/auth.store';
 import { StatusPill } from '../../components/StatusPill';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { WaitingRoomList } from '../../components/WaitingRoomList';
+import { CopyableInviteLink } from '../../components/CopyableInviteLink';
+import { PixOverlay } from '../../components/PixOverlay';
 import { showToast } from '../../components/Toast';
 import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
@@ -61,6 +63,17 @@ interface WaitingRoomStatus {
   totalCount: number;
   prize: string;
   participants: { name: string; paid: boolean }[];
+}
+
+// Plan 07-05 (D-23 hand-off): shape of the copyableLinks seed written by
+// challenges/new.tsx's web branch to queryClient.setQueryData(['invite-links',
+// challengeId], ...) right before navigating here. Matches new.tsx's own
+// InviteLink interface exactly (POST /challenges response shape) — no new
+// endpoint, this is a pure client-cache read.
+interface InviteLink {
+  token: string;
+  targetEmail: string;
+  copyableLink: string;
 }
 
 // --- Web default-panel helpers (CHALW-01, Task 2) --------------------------
@@ -406,6 +419,12 @@ function ChallengeDetailPage() {
       cancelMutation.mutate();
     }
   };
+
+  // D-12 (Plan 07-05, Task 1): the web sala de espera opens the shared Pix
+  // core in-place (PixOverlay) instead of navigating to /participants/pay —
+  // this state is hoisted above the early returns below so it stays a
+  // stable hook regardless of which status branch is rendered.
+  const [pixModalOpen, setPixModalOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -838,107 +857,230 @@ function ChallengeDetailPage() {
   // D-01/D-02/D-03/D-04/D-11.
   // ------------------------------------------------------------------------
 
-  // D-11: WAITING/FINISHED get only a simple centered single-column
-  // fallback — the SAME existing WAITING/FINISHED JSX reused verbatim
-  // (no new component, no new copy), just wrapped narrower. The rich
-  // WAITING/FINISHED web layout is Phase 7.
+  // D-11/Fase 7 (FUN-05, Plan 07-05 Task 1): WAITING now renders the rich
+  // sala de espera layout (2-column: convite/turma left, prêmio/entrada/
+  // cancelar right) reusing the SAME data/handlers already in scope above —
+  // no refetch. FINISHED still uses the Fase 6 single-column fallback here;
+  // Plan 07-05 Task 3 replaces it with the rich premiação layout. Any other
+  // non-ACTIVE status (e.g. CANCELLED) renders nothing, matching the
+  // previous fallback's behavior.
   if (challenge.status !== 'ACTIVE') {
-    return (
-      <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        {challenge.status === 'WAITING' && (
-          <div
-            style={{
-              background: 'var(--card)',
-              border: '1px solid var(--line)',
-              borderRadius: 18,
-              padding: 18,
-              marginBottom: 16,
-            }}
-          >
-            <div
+    if (challenge.status === 'WAITING') {
+      // D-23 hand-off (Plan 07-03): a pure local cache read, no network —
+      // only present right after a web create-challenge navigation; omitted
+      // entirely on any other visit (refresh, other participant, new
+      // session), per UI-SPEC's explicit "honest fallback" rule.
+      const inviteLinks =
+        queryClient.getQueryData<InviteLink[]>(['invite-links', challenge.id]) ?? [];
+
+      return (
+        <div style={{ position: 'relative' }}>
+          {/* Header — back-link, emoji-tile, title, StatusPill, meta line. */}
+          <div style={{ marginBottom: 18 }}>
+            <Link
+              to="/home"
               style={{
-                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                color: 'var(--muted)',
                 fontWeight: 700,
-                fontSize: '1.1rem',
-                marginBottom: 13,
-                display: 'flex',
+                fontSize: '0.92rem',
+                textDecoration: 'none',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: 8,
+                gap: 6,
+                marginBottom: 10,
               }}
             >
-              ⏳ Aguardando turma
-            </div>
+              ← Seus desafios
+            </Link>
 
-            {waitingRoom ? (
-              <>
-                <div
-                  style={{
-                    color: 'var(--green-ink)',
-                    fontWeight: 700,
-                    fontSize: '0.95rem',
-                    marginBottom: 4,
-                  }}
-                >
-                  {waitingRoom.paidCount} de {waitingRoom.totalCount} pagaram
-                </div>
-                {formattedDeadline && (
-                  <div
-                    style={{
-                      color: 'var(--muted)',
-                      fontWeight: 600,
-                      fontSize: '0.8rem',
-                      marginBottom: 13,
-                    }}
-                  >
-                    Começa quando 3+ pagarem. Prazo: {formattedDeadline}
-                  </div>
-                )}
-
-                {waitingRoom.participants.length > 0 && (
-                  <WaitingRoomList participants={waitingRoom.participants} />
-                )}
-              </>
-            ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  color: 'var(--green-ink)',
-                  fontWeight: 600,
-                  padding: '6px 0',
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
+                  background: 'var(--mint)',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: '1.8rem',
+                  flexShrink: 0,
                 }}
               >
-                <span
+                {challenge.emoji}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <h1
+                    style={{
+                      fontFamily: '"Baloo 2", system-ui, sans-serif',
+                      fontWeight: 800,
+                      fontSize: '1.6rem',
+                      lineHeight: 1.1,
+                      color: 'var(--green-ink)',
+                      margin: 0,
+                    }}
+                  >
+                    {challenge.title}
+                  </h1>
+                  <StatusPill status={challenge.status} />
+                </div>
+                <div style={{ marginTop: 4, fontSize: '0.88rem', fontWeight: 600, color: 'var(--muted)' }}>
+                  {challenge.durationDays} dias · começa quando todo mundo pagar · {formatBRL(collab)} por pessoa
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 26, alignItems: 'flex-start' }}>
+            {/* LEFT — Convida a turma (when hand-off present) + Quem já tá dentro */}
+            <div
+              style={{ flex: '2 1 480px', minWidth: 320, display: 'flex', flexDirection: 'column', gap: 18 }}
+            >
+              {inviteLinks.length > 0 && (
+                <div style={infoCardStyle}>
+                  <div style={cardHeadingStyle}>Convida a turma</div>
+                  <p
+                    style={{
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      color: 'var(--muted)',
+                      marginTop: -6,
+                      marginBottom: 14,
+                    }}
+                  >
+                    Manda esse link no grupo. Quem abrir cai direto no convite.
+                  </p>
+                  {inviteLinks.map((l) => (
+                    <CopyableInviteLink key={l.token} link={l.copyableLink} targetEmail={l.targetEmail} />
+                  ))}
+                </div>
+              )}
+
+              <div style={infoCardStyle}>
+                <div
                   style={{
-                    display: 'inline-block',
-                    width: 22,
-                    height: 22,
-                    border: '3px solid var(--mint-deep)',
-                    borderTopColor: 'var(--green)',
-                    borderRadius: '50%',
-                    animation: 'sp 0.8s linear infinite',
-                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    marginBottom: 12,
                   }}
-                />
-                <span>Carregando status do desafio...</span>
-              </div>
-            )}
-
-            {myParticipant && !myParticipant.paidAt && (
-              <div style={{ marginTop: 12 }}>
-                <PrimaryButton
-                  onClick={() =>
-                    void navigate({ to: '/participants/pay', search: { challengeId: challenge.id } })
-                  }
                 >
-                  Pagar minha entrada
-                </PrimaryButton>
-              </div>
-            )}
+                  <div style={{ ...cardHeadingStyle, marginBottom: 0 }}>Quem já tá dentro</div>
+                  {waitingRoom && (
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--green-ink)' }}>
+                      {waitingRoom.paidCount} de {waitingRoom.totalCount} pagaram
+                    </span>
+                  )}
+                </div>
 
-            {isCreator && (
-              <div style={{ marginTop: 12 }}>
+                {waitingRoom ? (
+                  <>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 999,
+                        background: 'var(--line)',
+                        overflow: 'hidden',
+                        marginBottom: 14,
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: 'block',
+                          height: '100%',
+                          width: `${waitingRoom.totalCount > 0 ? (waitingRoom.paidCount / waitingRoom.totalCount) * 100 : 0}%`,
+                          background: 'var(--green)',
+                          borderRadius: 999,
+                        }}
+                      />
+                    </div>
+                    {waitingRoom.participants.length > 0 && (
+                      <WaitingRoomList participants={waitingRoom.participants} />
+                    )}
+                    {/* D-21: the "still not accepted, remind them" pending-invite
+                        line is intentionally omitted here — it requires a
+                        "list my invites" endpoint that does not exist; deferred. */}
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      color: 'var(--green-ink)',
+                      fontWeight: 600,
+                      padding: '6px 0',
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 22,
+                        height: 22,
+                        border: '3px solid var(--mint-deep)',
+                        borderTopColor: 'var(--green)',
+                        borderRadius: '50%',
+                        animation: 'sp 0.8s linear infinite',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span>Carregando status do desafio...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT — prêmio, sua entrada (opens the Pix modal), cancelar */}
+            <div
+              style={{
+                flex: '1 1 340px',
+                minWidth: 300,
+                maxWidth: 420,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 18,
+              }}
+            >
+              <div style={{ background: 'var(--mint)', borderRadius: 20, padding: 22 }}>
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    color: 'var(--green-ink)',
+                  }}
+                >
+                  Prêmio se todo mundo pagar
+                </div>
+                <div
+                  style={{
+                    fontFamily: '"Baloo 2", system-ui, sans-serif',
+                    fontWeight: 800,
+                    fontSize: '1.6rem',
+                    color: 'var(--green-ink)',
+                    margin: '4px 0 8px',
+                  }}
+                >
+                  {formatBRL(prize)}
+                </div>
+                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--green-ink)' }}>
+                  {participantCount} pessoas × {formatBRL(collab)} − {formatBRL(fee)} de taxa
+                </div>
+              </div>
+
+              {myParticipant && !myParticipant.paidAt && (
+                <div style={infoCardStyle}>
+                  <div style={cardHeadingStyle}>Sua entrada</div>
+                  <p style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--muted)', marginBottom: 14 }}>
+                    Você ainda não pagou a sua colaboração de {formatBRL(collab)}.
+                  </p>
+                  {/* D-12: replaces the mobile navigate-to-/participants/pay
+                      call-site — web opens the shared Pix core in-place. */}
+                  <PrimaryButton onClick={() => setPixModalOpen(true)}>Pagar minha entrada</PrimaryButton>
+                </div>
+              )}
+
+              {isCreator && (
                 <button
                   type="button"
                   onClick={handleCancel}
@@ -962,11 +1104,23 @@ function ChallengeDetailPage() {
                 >
                   {cancelMutation.isPending ? 'Cancelando...' : 'Cancelar desafio'}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        )}
 
+          {pixModalOpen && (
+            <PixOverlay
+              challengeId={challenge.id}
+              title={challenge.title}
+              onClose={() => setPixModalOpen(false)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
         {challenge.status === 'FINISHED' && (
           <div style={{ marginBottom: 16 }}>
             {myPayout && <WinnerBanner payout={myPayout} />}
