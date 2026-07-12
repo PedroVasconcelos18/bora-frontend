@@ -9,6 +9,8 @@ import { FormField } from '../components/FormField';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { DisclaimerFooter } from '../components/DisclaimerFooter';
 import { consumePendingInvite } from '../lib/pendingInvite';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { BREAKPOINTS } from '../lib/breakpoints';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido.'),
@@ -94,124 +96,238 @@ function LoginPage() {
     void handleSubmit(onSubmit)(e);
   };
 
-  return (
-    <section
+  // Computed unconditionally (before any early return) so the rules of
+  // hooks stay satisfied regardless of which branch is taken (D-02, same
+  // hoist pattern as home.tsx).
+  const isWeb = useMediaQuery(`(min-width: ${BREAKPOINTS.tablet}px)`);
+
+  // Error banner — reused verbatim (same JSX/hex) by both the mobile and web
+  // branches below via a single definition, so the pre-existing grandfathered
+  // hex is not duplicated/copied into the new web branch.
+  const errorBanner = serverError && (
+    <div
+      role="alert"
       style={{
-        flex: 1,
+        background: '#FFE2DA',
+        color: '#c0392b',
+        fontWeight: 600,
+        fontSize: '0.88rem',
+        padding: '11px 14px',
+        borderRadius: 12,
+        marginBottom: 14,
         display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        padding: '32px 26px',
+        alignItems: 'center',
+        gap: 8,
       }}
     >
-      {/* Brand mark */}
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <div
-          style={{
-            width: 74,
-            height: 74,
-            borderRadius: 24,
-            background: 'var(--green-bright)',
-            display: 'grid',
-            placeItems: 'center',
-            margin: '0 auto 14px',
-            transform: 'rotate(-7deg)',
-            fontSize: '2.4rem',
-            boxShadow: 'var(--shadow)',
-          }}
-        >
-          ↑
-        </div>
-        <h1
-          style={{
-            fontFamily: '"Baloo 2", system-ui, sans-serif',
-            fontSize: '2.6rem',
-            fontWeight: 800,
-            color: 'var(--green-ink)',
-          }}
-        >
-          Bora
-        </h1>
-        <p style={{ color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>
-          Desafios de hábito entre amigos
-        </p>
-      </div>
+      <span>⚠️</span>
+      <span>{serverError}</span>
+    </div>
+  );
 
-      {/* Error banner */}
-      {serverError && (
-        <div
-          role="alert"
-          style={{
-            background: '#FFE2DA',
-            color: '#c0392b',
-            fontWeight: 600,
-            fontSize: '0.88rem',
-            padding: '11px 14px',
-            borderRadius: 12,
-            marginBottom: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span>⚠️</span>
-          <span>{serverError}</span>
-        </div>
-      )}
-
-      {/* Login form */}
-      <form onSubmit={handleFormSubmit} noValidate>
-        <FormField
-          id="email"
-          label="E-mail"
-          type="email"
-          placeholder="voce@email.com"
-          autoComplete="username"
-          error={errors.email?.message}
-          registration={register('email')}
-        />
-        <FormField
-          id="password"
-          label="Senha"
-          type="password"
-          placeholder="••••••••"
-          autoComplete="current-password"
-          error={errors.password?.message}
-          registration={register('password')}
-        />
-
-        <PrimaryButton
-          type="submit"
-          loading={loading}
-          disabled={!isValid || isEmpty}
-        >
-          Entrar
-        </PrimaryButton>
-      </form>
-
-      {/* Sign up link */}
-      <p
+  if (!isWeb) {
+    return (
+      <section
         style={{
-          textAlign: 'center',
-          marginTop: 20,
-          fontSize: '0.9rem',
-          color: 'var(--muted)',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          padding: '32px 26px',
         }}
       >
-        Não tem conta?{' '}
-        <Link
-          to="/signup"
+        {/* Brand mark */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div
+            style={{
+              width: 74,
+              height: 74,
+              borderRadius: 24,
+              background: 'var(--green-bright)',
+              display: 'grid',
+              placeItems: 'center',
+              margin: '0 auto 14px',
+              transform: 'rotate(-7deg)',
+              fontSize: '2.4rem',
+              boxShadow: 'var(--shadow)',
+            }}
+          >
+            ↑
+          </div>
+          <h1
+            style={{
+              fontFamily: '"Baloo 2", system-ui, sans-serif',
+              fontSize: '2.6rem',
+              fontWeight: 800,
+              color: 'var(--green-ink)',
+            }}
+          >
+            Bora
+          </h1>
+          <p style={{ color: 'var(--muted)', fontWeight: 600, marginTop: 2 }}>
+            Desafios de hábito entre amigos
+          </p>
+        </div>
+
+        {/* Error banner */}
+        {errorBanner}
+
+        {/* Login form */}
+        <form onSubmit={handleFormSubmit} noValidate>
+          <FormField
+            id="email"
+            label="E-mail"
+            type="email"
+            placeholder="voce@email.com"
+            autoComplete="username"
+            error={errors.email?.message}
+            registration={register('email')}
+          />
+          <FormField
+            id="password"
+            label="Senha"
+            type="password"
+            placeholder="••••••••"
+            autoComplete="current-password"
+            error={errors.password?.message}
+            registration={register('password')}
+          />
+
+          <PrimaryButton
+            type="submit"
+            loading={loading}
+            disabled={!isValid || isEmpty}
+          >
+            Entrar
+          </PrimaryButton>
+        </form>
+
+        {/* Sign up link */}
+        <p
           style={{
-            color: 'var(--green)',
-            fontWeight: 700,
-            textDecoration: 'none',
+            textAlign: 'center',
+            marginTop: 20,
+            fontSize: '0.9rem',
+            color: 'var(--muted)',
           }}
         >
-          Criar conta
-        </Link>
-      </p>
+          Não tem conta?{' '}
+          <Link
+            to="/signup"
+            style={{
+              color: 'var(--green)',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            Criar conta
+          </Link>
+        </p>
 
-      {/* "Não é aposta" disclaimer footer (PROF-02 / D-13) */}
+        {/* "Não é aposta" disclaimer footer (PROF-02 / D-13) */}
+        <DisclaimerFooter />
+      </section>
+    );
+  }
+
+  // --- Web layout (>=768px, FUN-01) -----------------------------------------
+  // Bare centered auth card (D-01/D-04) — /login is already a PUBLIC_ROUTE
+  // (Fase 5 D-13), so this branch renders without WebShell chrome. All
+  // useForm/onSubmit/serverError logic above is reused unchanged; only the
+  // JSX below is new.
+  return (
+    <section style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: 48 }}>
+        <div style={{ width: 'min(440px,100%)' }}>
+          {/* Brand mark */}
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <h1
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontSize: '2.2rem',
+                fontWeight: 800,
+                color: 'var(--green-ink)',
+              }}
+            >
+              Bora<span style={{ color: 'var(--green-bright)' }}>.</span>
+            </h1>
+            <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.95rem', marginTop: 2 }}>
+              Desafios de hábito entre amigos. Valendo.
+            </p>
+          </div>
+
+          <div
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: 24,
+              padding: 28,
+              boxShadow: 'var(--shadow)',
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontSize: '1.35rem',
+                fontWeight: 700,
+                color: 'var(--ink)',
+                marginBottom: 18,
+              }}
+            >
+              Bora entrar
+            </h2>
+
+            {/* Error banner — reused from the single definition above, not copied/duplicated */}
+            {errorBanner}
+
+            <form onSubmit={handleFormSubmit} noValidate>
+              <FormField
+                id="login-email"
+                label="Email"
+                type="email"
+                placeholder="voce@email.com"
+                autoComplete="username"
+                error={errors.email?.message}
+                registration={register('email')}
+              />
+              <FormField
+                id="login-senha"
+                label="Senha"
+                type="password"
+                placeholder="••••••••"
+                autoComplete="current-password"
+                error={errors.password?.message}
+                registration={register('password')}
+              />
+
+              {/* "Esqueci minha senha" omitted — /forgot-password does not
+                  exist yet (Fase 8); do not link to a 404 (D-01/UI-SPEC). */}
+
+              <PrimaryButton type="submit" loading={loading} disabled={!isValid || isEmpty}>
+                Entrar
+              </PrimaryButton>
+            </form>
+
+            <p
+              style={{
+                textAlign: 'center',
+                marginTop: 18,
+                fontSize: '0.9rem',
+                color: 'var(--muted)',
+              }}
+            >
+              Primeira vez por aqui?{' '}
+              <Link
+                to="/signup"
+                style={{ color: 'var(--green)', fontWeight: 700, textDecoration: 'none' }}
+              >
+                Criar conta
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+
       <DisclaimerFooter />
     </section>
   );
