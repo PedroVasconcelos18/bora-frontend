@@ -15,7 +15,7 @@ import { WebShell } from '../components/WebShell';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../lib/breakpoints';
 import { savePendingInvite } from '../lib/pendingInvite';
-import { resolveGuardRedirect } from '../lib/authGuard';
+import { resolveGuardRedirect, shouldRenderChrome } from '../lib/authGuard';
 
 const queryClient = new QueryClient();
 
@@ -158,20 +158,26 @@ function AppWithAuth() {
     );
   }
 
+  // Chrome is decided by route PUBLICNESS, not by `user` truthiness (07-07,
+  // UAT gap 4). BARE_WHEN_AUTHED (currently just '/invites') keeps a signed-in
+  // visitor on a bare page; TRAP (b): /admin stays chromed for an
+  // authenticated operator even though it is also a PUBLIC_ROUTES entry.
+  const renderChrome = shouldRenderChrome(routerState.location.pathname, !!user);
+
   if (isWeb) {
     return (
       <>
-        {user && <WebShell />}
-        {!user && <Outlet />}
+        {renderChrome ? <WebShell /> : <Outlet />}
+        <ToastContainer />
       </>
     );
   }
 
   return (
     <div className="device">
-      {user && <AppBar />}
+      {renderChrome && <AppBar />}
       <Outlet />
-      {user && <TabBar />}
+      {renderChrome && <TabBar />}
       <ToastContainer />
     </div>
   );
