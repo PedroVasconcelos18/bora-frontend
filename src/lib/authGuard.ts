@@ -23,7 +23,14 @@ import type { AuthUser, AuthStatus } from '../stores/auth.store';
 // screen instead of being bounced to /login (Rule 2 — missing critical
 // functionality, since /admin's whole point is to be usable independent of
 // any user session).
-export const PUBLIC_ROUTES = ['/login', '/signup', '/invites', '/admin'];
+export const PUBLIC_ROUTES = [
+  '/login',
+  '/signup',
+  '/invites',
+  '/admin',
+  '/forgot-password',
+  '/reset-password',
+];
 
 export type { AuthStatus };
 
@@ -32,16 +39,19 @@ export function isPublicRoute(pathname: string): boolean {
 }
 
 // Routes that stay chrome-free even for a signed-in visitor (07-07, UAT gap 4).
-// Deliberately NARROW — exactly one entry — rather than "every PUBLIC_ROUTES
-// entry": '/admin' is also public but IS durably occupied by an AUTHENTICATED
-// operator (gated by an env secret, AdminGuard, D-11 — not by publicness), so a
-// blanket PUBLIC_ROUTES check here would wrongly strip its sidebar (TRAP b).
+// Deliberately NARROW — rather than "every PUBLIC_ROUTES entry": '/admin' is
+// also public but IS durably occupied by an AUTHENTICATED operator (gated by
+// an env secret, AdminGuard, D-11 — not by publicness), so a blanket
+// PUBLIC_ROUTES check here would wrongly strip its sidebar (TRAP b).
 // '/login' and '/signup' are never durably occupied by an authenticated visitor
 // either — their own effects (login.tsx/signup.tsx) bounce an authed visitor
-// away on mount. '/invites' is the only route where an authenticated visitor
-// legitimately sits on a public page (accepting an invite while already logged
-// in, correct-email or wrong-email state).
-export const BARE_WHEN_AUTHED = ['/invites'];
+// away on mount. '/invites' is where an authenticated visitor legitimately
+// sits on a public page (accepting an invite while already logged in,
+// correct-email or wrong-email state). The two password-recovery routes
+// (Fase 8, D-18) qualify for the same reason: a signed-in visitor who opens a
+// reset link (another tab, an old e-mail link) must still see the bare card,
+// never WebShell/AppBar+TabBar chrome around it.
+export const BARE_WHEN_AUTHED = ['/invites', '/forgot-password', '/reset-password'];
 
 /**
  * shouldRenderChrome — the chrome-render policy (07-07, UAT gap 4).

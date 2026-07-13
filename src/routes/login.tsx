@@ -198,6 +198,16 @@ function LoginPage() {
             registration={register('password')}
           />
 
+          {/* "Esqueci minha senha" (D-14, canvas 2a linha 52) */}
+          <div style={{ textAlign: 'right', margin: '-6px 0 16px' }}>
+            <Link
+              to="/forgot-password"
+              style={{ fontSize: '0.85rem', color: 'var(--green)', fontWeight: 700, textDecoration: 'none' }}
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
+
           <PrimaryButton
             type="submit"
             loading={loading}
@@ -305,8 +315,15 @@ function LoginPage() {
                 registration={register('password')}
               />
 
-              {/* "Esqueci minha senha" omitted — /forgot-password does not
-                  exist yet (Fase 8); do not link to a 404 (D-01/UI-SPEC). */}
+              {/* "Esqueci minha senha" (D-14, canvas 2a linha 52) */}
+              <div style={{ textAlign: 'right', margin: '-6px 0 16px' }}>
+                <Link
+                  to="/forgot-password"
+                  style={{ fontSize: '0.85rem', color: 'var(--green)', fontWeight: 700, textDecoration: 'none' }}
+                >
+                  Esqueci minha senha
+                </Link>
+              </div>
 
               <PrimaryButton type="submit" loading={loading} disabled={!isValid || isEmpty}>
                 Entrar
