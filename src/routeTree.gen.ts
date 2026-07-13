@@ -16,6 +16,7 @@ import { Route as HomeRouteImport } from './routes/home'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as ResetPasswordTokenRouteImport } from './routes/reset-password/$token'
 import { Route as ParticipantsPayRouteImport } from './routes/participants/pay'
 import { Route as InvitesTokenRouteImport } from './routes/invites/$token'
 import { Route as ChallengesNewRouteImport } from './routes/challenges/new'
@@ -56,6 +57,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResetPasswordTokenRoute = ResetPasswordTokenRouteImport.update({
+  id: '/reset-password/$token',
+  path: '/reset-password/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParticipantsPayRoute = ParticipantsPayRouteImport.update({
   id: '/participants/pay',
   path: '/participants/pay',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/participants/pay': typeof ParticipantsPayRoute
+  '/reset-password/$token': typeof ResetPasswordTokenRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/participants/pay': typeof ParticipantsPayRoute
+  '/reset-password/$token': typeof ResetPasswordTokenRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/challenges/new': typeof ChallengesNewRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/participants/pay': typeof ParticipantsPayRoute
+  '/reset-password/$token': typeof ResetPasswordTokenRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/challenges/new'
     | '/invites/$token'
     | '/participants/pay'
+    | '/reset-password/$token'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/challenges/new'
     | '/invites/$token'
     | '/participants/pay'
+    | '/reset-password/$token'
     | '/admin'
   id:
     | '__root__'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/challenges/new'
     | '/invites/$token'
     | '/participants/pay'
+    | '/reset-password/$token'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -170,6 +182,7 @@ export interface RootRouteChildren {
   ChallengesNewRoute: typeof ChallengesNewRoute
   InvitesTokenRoute: typeof InvitesTokenRoute
   ParticipantsPayRoute: typeof ParticipantsPayRoute
+  ResetPasswordTokenRoute: typeof ResetPasswordTokenRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -224,6 +237,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reset-password/$token': {
+      id: '/reset-password/$token'
+      path: '/reset-password/$token'
+      fullPath: '/reset-password/$token'
+      preLoaderRoute: typeof ResetPasswordTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/participants/pay': {
       id: '/participants/pay'
       path: '/participants/pay'
@@ -266,6 +286,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChallengesNewRoute: ChallengesNewRoute,
   InvitesTokenRoute: InvitesTokenRoute,
   ParticipantsPayRoute: ParticipantsPayRoute,
+  ResetPasswordTokenRoute: ResetPasswordTokenRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
