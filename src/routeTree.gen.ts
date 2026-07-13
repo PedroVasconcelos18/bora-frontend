@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ParticipantsPayRouteImport } from './routes/participants/pay'
@@ -38,6 +39,11 @@ const LoginRoute = LoginRouteImport.update({
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -73,6 +79,7 @@ const ChallengesChallengeIdRoute = ChallengesChallengeIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -85,6 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -98,6 +106,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -112,6 +121,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/forgot-password'
     | '/home'
     | '/login'
     | '/profile'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/forgot-password'
     | '/home'
     | '/login'
     | '/profile'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/forgot-password'
     | '/home'
     | '/login'
     | '/profile'
@@ -149,6 +161,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -237,6 +257,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
