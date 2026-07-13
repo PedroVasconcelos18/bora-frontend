@@ -1,6 +1,7 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useAuthStore } from '../stores/auth.store';
 import { useLogout } from '../hooks/useLogout';
+import { useUnreadCount } from '../hooks/useUnreadCount';
 import { PrimaryButton } from './PrimaryButton';
 
 /**
@@ -17,6 +18,7 @@ export function Sidebar() {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
   const handleLogout = useLogout();
+  const { data: unreadCount } = useUnreadCount();
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
@@ -102,17 +104,53 @@ export function Sidebar() {
           Desafios
         </button>
 
-        {/* Notificações — INERT (D-14): plain div, no onClick, no tabIndex, no route, no badge */}
-        <div
+        {/* Notificações — ativado na Fase 9 (D-12): botão navegável + badge numérico */}
+        <button
+          type="button"
+          onClick={() => void navigate({ to: '/notifications' })}
           style={{
             ...navRowBaseStyle,
-            color: 'var(--muted)',
-            opacity: 0.7,
+            border: 'none',
+            cursor: 'pointer',
+            background: isActive('/notifications') ? 'var(--mint)' : 'none',
+            color: isActive('/notifications') ? 'var(--green-ink)' : 'var(--muted)',
+            textAlign: 'left',
+            justifyContent: 'space-between',
+            width: '100%',
+          }}
+          onMouseEnter={(e) => {
+            if (!isActive('/notifications')) e.currentTarget.style.background = 'var(--paper)';
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive('/notifications')) e.currentTarget.style.background = 'none';
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.outline = '3px solid var(--coral)';
+            e.currentTarget.style.outlineOffset = '2px';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.outline = 'none';
           }}
         >
-          <span>🔔</span>
-          Notificações
-        </div>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span>🔔</span>
+            Notificações
+          </span>
+          {!!unreadCount && unreadCount > 0 && (
+            <span
+              style={{
+                background: 'var(--coral)',
+                color: 'var(--card)',
+                borderRadius: 999,
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                padding: '2px 8px',
+              }}
+            >
+              {unreadCount}
+            </span>
+          )}
+        </button>
 
         <button
           type="button"

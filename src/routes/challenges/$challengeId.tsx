@@ -30,7 +30,14 @@ const R2_PUBLIC_BASE_URL: string = import.meta.env.VITE_R2_PUBLIC_BASE_URL ?? ''
 interface ChallengeDetailSearch {
   token?: string;
   autopay?: string | number | boolean;
+  // Fase 9 (D-11/NOTIF-04): deep-link do painel de notificações pro painel
+  // expandido web ("votar agora →"/"ver resultado →") — mesmo padrão de
+  // token/autopay, aditivo e opcional. Sem efeito no mobile (SegmentedTabs
+  // tem estado próprio; fora do escopo desta fase).
+  panel?: 'votar' | 'feed' | 'ranking';
 }
+
+const VALID_PANEL_VALUES = ['votar', 'feed', 'ranking'] as const;
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -38,6 +45,9 @@ export const Route = createFileRoute('/challenges/$challengeId')({
     token: typeof search.token === 'string' ? search.token : undefined,
     autopay:
       search.autopay === '1' || search.autopay === 1 || search.autopay === true ? true : undefined,
+    panel: VALID_PANEL_VALUES.includes(search.panel as (typeof VALID_PANEL_VALUES)[number])
+      ? (search.panel as (typeof VALID_PANEL_VALUES)[number])
+      : undefined,
   }),
 });
 
@@ -255,7 +265,7 @@ function DetailRow({ label, value, last }: { label: string; value: string; last?
 
 function ChallengeDetailPage() {
   const { challengeId } = Route.useParams();
-  const { token, autopay } = Route.useSearch();
+  const { token, autopay, panel: panelFromSearch } = Route.useSearch();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -368,7 +378,9 @@ function ChallengeDetailPage() {
   // route, not a modal. Only the 'default' layout is implemented by this
   // plan (Plan 06-03 wires the votar/feed/ranking branches) — any other
   // panel value currently falls through to the default layout below.
-  const [panel, setPanel] = useState<'default' | 'votar' | 'feed' | 'ranking'>('default');
+  const [panel, setPanel] = useState<'default' | 'votar' | 'feed' | 'ranking'>(
+    panelFromSearch ?? 'default',
+  );
 
   // D-12/D-13: this route body renders inside BOTH the mobile device tree
   // and the web WebShell tree (__root.tsx's single <Outlet/> mounts it in
