@@ -159,9 +159,10 @@ function AppWithAuth() {
   }
 
   // Chrome is decided by route PUBLICNESS, not by `user` truthiness (07-07,
-  // UAT gap 4). BARE_WHEN_AUTHED (currently just '/invites') keeps a signed-in
-  // visitor on a bare page; TRAP (b): /admin stays chromed for an
-  // authenticated operator even though it is also a PUBLIC_ROUTES entry.
+  // UAT gap 4). BARE_WHEN_AUTHED now also includes '/admin' (D-02, Fase 10):
+  // the admin console is gated by an env secret, not a user session, so it
+  // stays bare — no WebShell on web, no AppBar/TabBar on mobile — in EVERY
+  // session and at every width. It brings its own header instead (D-03).
   const renderChrome = shouldRenderChrome(routerState.location.pathname, !!user);
 
   if (isWeb) {

@@ -18,11 +18,14 @@ import type { AuthUser, AuthStatus } from '../stores/auth.store';
 // '/invites' is included so a logged-out invitee reaches the invite screen
 // before any guard redirect (GAP 2 fix — startsWith matching covers /invites/$token).
 // '/admin' is included because it is gated by a distinct env-configured secret
-// (AdminGuard, D-11) rather than the user JWT session — an operator who is not
-// (or cannot be) logged in as an app user must still reach the secret-entry
-// screen instead of being bounced to /login (Rule 2 — missing critical
-// functionality, since /admin's whole point is to be usable independent of
-// any user session).
+// (AdminGuard) checked over an X-Admin-Secret header, NOT the user JWT
+// session — an operator who is not (or cannot be) logged in as an app user
+// must still reach the secret-entry screen instead of being bounced to
+// /login (Rule 2 — missing critical functionality, since /admin's whole
+// point is to be usable independent of any user session). Because the gate
+// is a secret and not a session, /admin is ALSO in BARE_WHEN_AUTHED below
+// (D-02, Fase 10): the console must look identical whether or not the
+// operator happens to also have a logged-in app-user session.
 export const PUBLIC_ROUTES = [
   '/login',
   '/signup',
@@ -39,10 +42,6 @@ export function isPublicRoute(pathname: string): boolean {
 }
 
 // Routes that stay chrome-free even for a signed-in visitor (07-07, UAT gap 4).
-// Deliberately NARROW — rather than "every PUBLIC_ROUTES entry": '/admin' is
-// also public but IS durably occupied by an AUTHENTICATED operator (gated by
-// an env secret, AdminGuard, D-11 — not by publicness), so a blanket
-// PUBLIC_ROUTES check here would wrongly strip its sidebar (TRAP b).
 // '/login' and '/signup' are never durably occupied by an authenticated visitor
 // either — their own effects (login.tsx/signup.tsx) bounce an authed visitor
 // away on mount. '/invites' is where an authenticated visitor legitimately
@@ -51,7 +50,18 @@ export function isPublicRoute(pathname: string): boolean {
 // (Fase 8, D-18) qualify for the same reason: a signed-in visitor who opens a
 // reset link (another tab, an old e-mail link) must still see the bare card,
 // never WebShell/AppBar+TabBar chrome around it.
-export const BARE_WHEN_AUTHED = ['/invites', '/forgot-password', '/reset-password'];
+// '/admin' (D-02, Fase 10): the console's operator is authenticated by an env
+// secret (AdminGuard), NOT by a user JWT session — rendering the app user's
+// sidebar (Início/Desafios/Notificações/Perfil) inside an operator console
+// would offer navigation into an app the operator may not even have an
+// account for, and would make the SAME /admin route look different purely
+// based on whether the operator happens to also hold a logged-in app-user
+// session. Fase 5 originally left '/admin' OUT of this list on purpose,
+// flagging that omission as "TRAP (b)" — a signed-in operator's sidebar was
+// deliberately preserved. Fase 10 inverts that call: /admin now belongs here
+// so the console is the same bare object at any width and any session, and
+// brings its own header instead (D-03).
+export const BARE_WHEN_AUTHED = ['/invites', '/forgot-password', '/reset-password', '/admin'];
 
 /**
  * shouldRenderChrome — the chrome-render policy (07-07, UAT gap 4).
