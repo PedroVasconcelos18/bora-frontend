@@ -43,11 +43,33 @@ interface UsePixPaymentArgs {
  * auto-navigate side-effect) intentionally stay OUT of this hook — they
  * remain in `pay.tsx` (mobile) since `PixOverlay` (web) must NOT navigate,
  * it only closes in place.
+ *
+ * CHARGE PHASE IS MIRRORED INTO LOCAL STATE — read this before "simplifying".
+ * Every charge-phase flag this hook exports (isPending / isError /
+ * errorMessage) is derived from a local `phase` state written by the
+ * mutation's OPTION callbacks (onMutate / onSuccess / onError). It is NOT
+ * read off the mutation result snapshot, because that snapshot is not
+ * reliable across a subscription teardown: the charge is fired from a mount
+ * effect, and StrictMode's mount→unmount→remount cycle tears the result
+ * subscription down mid-flight. The subscription is never re-established
+ * (only re-invoking the mutation through the observer would do that, and the
+ * fired-once latch below correctly prevents exactly that), so the snapshot
+ * freezes at "pending" forever — the error never surfaces and every button
+ * gated on the snapshot's pending flag stays disabled for good.
+ *
+ * The option callbacks are immune to this: the mutation invokes them directly
+ * on its own options object, with no dependency on the result subscription.
+ * They must therefore stay declared in the useMutation({ ... }) options —
+ * moving them to a per-call mutate(vars, { ... }) second argument would route
+ * them back through the very subscription that breaks, and they would be just
+ * as dead.
  */
 export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPaymentArgs) {
   const { user } = useAuthStore();
   const [pixKey, setPixKey] = useState('');
   const [charge, setCharge] = useState<ChargeResult | null>(null);
+  const [phase, setPhase] = useState<'idle' | 'pending' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const firedOnce = useRef(false);
 
   // Both the invitee ("aceitar e pagar") and creator ("pagar minha entrada")
@@ -66,13 +88,32 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
       }
       return (await res.json()) as ChargeResult;
     },
+    // These three callbacks MUST stay here, in the useMutation options object.
+    // The mutation invokes them directly on its own options, so they keep
+    // running even after the result subscription has been torn down (see the
+    // hook docblock). Do NOT move them into a per-call mutate(vars, { ... })
+    // second argument — those are dispatched through the result subscription
+    // and would be just as dead as the snapshot.
+    onMutate: () => {
+      setPhase('pending');
+      setErrorMessage(null);
+    },
     onSuccess: (data) => {
       setCharge(data);
+      setPhase('idle');
     },
     onError: (err: Error) => {
-      showToast(err.message ?? 'Erro ao gerar cobrança Pix.');
+      const message = err.message ?? 'Erro ao gerar cobrança Pix.';
+      setPhase('error');
+      setErrorMessage(message);
+      showToast(message);
     },
   });
+
+  // The charge-phase flags the UI reads. Derived from local state, never from
+  // the mutation result snapshot.
+  const isPending = phase === 'pending';
+  const isError = phase === 'error';
 
   // Fire the initial charge exactly once on mount (per plan: "on mount it
   // POSTs to the charge endpoint"). Regeneration reuses the same mutation
@@ -90,13 +131,14 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
   // is the only thing preventing the mount effect above from re-firing and
   // issuing a duplicate charge POST, and this core is shared by three call
   // sites. Retry works by calling `mutate` directly; the mount effect stays
-  // fired-once forever. The isPending guard stops an impatient double-click
-  // from firing two overlapping charges.
+  // fired-once forever. The in-flight guard below stops an impatient
+  // double-click from firing two overlapping charges — it reads the local
+  // phase, not the frozen result snapshot, so it actually releases.
   const retry = useCallback(() => {
-    if (chargeMutation.isPending) return;
+    if (phase === 'pending') return;
     chargeMutation.mutate(pixKey || undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chargeMutation.isPending, pixKey]);
+  }, [phase, pixKey]);
 
   const challengeId = charge?.challengeId ?? challengeIdParam;
 
@@ -176,8 +218,9 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
     challengeSummary,
     isExpired,
     countdown,
-    isError: chargeMutation.isError,
-    errorMessage: chargeMutation.error?.message ?? null,
+    isPending,
+    isError,
+    errorMessage,
     retry,
   };
 }
