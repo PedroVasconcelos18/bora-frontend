@@ -3,10 +3,13 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createAdminClient } from '../../api/client';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { FormField } from '../../components/FormField';
+import { AdminQueueTable } from '../../components/AdminQueueTable';
 import { showToast } from '../../components/Toast';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 export const Route = createFileRoute('/admin/')({
-  component: AdminRefundQueuePage,
+  component: AdminConsolePage,
 });
 
 // D-11: the secret is held in sessionStorage only, entered once, and never
@@ -31,17 +34,24 @@ interface PayoutRow {
   pixKey: string | null;
 }
 
-function AdminRefundQueuePage() {
+function AdminConsolePage() {
   const [secret, setSecret] = useState<string>(() => sessionStorage.getItem(ADMIN_SECRET_KEY) ?? '');
   const [secretInput, setSecretInput] = useState('');
   const queryClient = useQueryClient();
+
+  // Hoisted above every early return (Rules of Hooks — Fases 6/7/8/9
+  // pattern). isWeb decides table-vs-cards for AdminQueueTable; isDesktop
+  // only picks the console header/page gutter (32 vs 24), reproducing the
+  // padding WebShell used to provide before /admin went bare (D-02).
+  const isWeb = useMediaQuery('(min-width: 768px)');
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   const adminClient = useMemo(() => createAdminClient(secret), [secret]);
 
   const {
     data: refunds,
-    isLoading,
-    isError,
+    isLoading: isRefundsLoading,
+    isError: isRefundsError,
   } = useQuery<RefundRow[]>({
     queryKey: ['admin-refunds', secret],
     queryFn: async () => {
@@ -121,329 +131,168 @@ function AdminRefundQueuePage() {
     setSecret(trimmed);
   };
 
-  // State: no secret entered yet (or a prior attempt was rejected).
+  // D-03: "Sair" discards the key — the exact same pair of operations the
+  // 401/403 branches above already run. queryKey includes `secret` and both
+  // queries are enabled: !!secret, so no extra invalidation is needed.
+  const handleSair = () => {
+    sessionStorage.removeItem(ADMIN_SECRET_KEY);
+    setSecret('');
+  };
+
+  // D-03/D-06: a queue that hasn't resolved yet (or that errored) simply
+  // omits its segment — the header never shows undefined/NaN and never
+  // waits on the slower queue.
+  const counterSegments: string[] = [];
+  if (!isRefundsLoading && refunds) {
+    counterSegments.push(refunds.length === 1 ? '1 reembolso' : `${refunds.length} reembolsos`);
+  }
+  if (!isPayoutsLoading && payouts) {
+    counterSegments.push(payouts.length === 1 ? '1 repasse' : `${payouts.length} repasses`);
+  }
+  const countersLabel = counterSegments.join(' · ');
+
+  // State: no secret entered yet (or a prior attempt was rejected). D-04:
+  // centered ~440px card, same vocabulary as the public auth pages (Fase 7).
+  // No header here — "Sair" makes no sense before entering.
   if (!secret) {
     return (
-      <section
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '32px 26px',
-        }}
-      >
-        <h2
-          style={{
-            fontFamily: '"Baloo 2", system-ui, sans-serif',
-            fontWeight: 800,
-            fontSize: '1.3rem',
-            color: 'var(--ink)',
-            marginBottom: 8,
-          }}
-        >
-          Painel admin
-        </h2>
-        <p style={{ color: 'var(--muted)', fontSize: '0.92rem', marginBottom: 20 }}>
-          Informe a chave de administrador para ver a fila de reembolso.
-        </p>
-        <form onSubmit={handleSubmitSecret} noValidate>
-          <input
-            type="password"
-            autoComplete="off"
-            value={secretInput}
-            onChange={(e) => setSecretInput(e.target.value)}
-            placeholder="Chave de administrador"
-            style={{
-              width: '100%',
-              padding: '14px 16px',
-              borderRadius: 14,
-              border: '2px solid var(--line)',
-              background: 'var(--card)',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              color: 'var(--ink)',
-              outline: 'none',
-              marginBottom: 16,
-              boxSizing: 'border-box',
-            }}
-          />
-          <PrimaryButton type="submit">Entrar</PrimaryButton>
-        </form>
+      <section style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--paper)' }}>
+        <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: 48 }}>
+          <div style={{ width: 'min(440px, 100%)' }}>
+            <div
+              style={{
+                background: 'var(--card)',
+                border: '1px solid var(--line)',
+                borderRadius: 24,
+                padding: 28,
+                boxShadow: 'var(--shadow)',
+              }}
+            >
+              <h2
+                style={{
+                  fontFamily: '"Baloo 2", system-ui, sans-serif',
+                  fontWeight: 700,
+                  fontSize: '1.35rem',
+                  color: 'var(--ink)',
+                  marginBottom: 8,
+                }}
+              >
+                Painel admin
+              </h2>
+              <p style={{ color: 'var(--muted)', fontSize: '0.92rem', marginBottom: 20 }}>
+                Informe a chave de administrador para ver as filas de reembolso e repasse.
+              </p>
+              <form onSubmit={handleSubmitSecret} noValidate>
+                <FormField
+                  id="admin-secret"
+                  label="Chave de administrador"
+                  type="password"
+                  autoComplete="off"
+                  registration={{ value: secretInput, onChange: (e) => setSecretInput(e.target.value) }}
+                />
+                <PrimaryButton type="submit">Entrar</PrimaryButton>
+              </form>
+            </div>
+          </div>
+        </div>
       </section>
     );
   }
 
-  if (isLoading) {
-    return (
-      <section
-        style={{
-          flex: 1,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '32px 26px',
-        }}
-      >
-        <span
-          style={{
-            display: 'inline-block',
-            width: 32,
-            height: 32,
-            border: '3px solid var(--mint-deep)',
-            borderTopColor: 'var(--green)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
-      </section>
-    );
-  }
-
-  if (isError) {
-    return (
-      <section
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          padding: '32px 26px',
-          textAlign: 'center',
-        }}
-      >
-        <div style={{ fontSize: '2rem', marginBottom: 12 }}>😕</div>
-        <p style={{ color: 'var(--muted)', fontWeight: 600 }}>
-          Não foi possível carregar a fila de reembolso. Verifique a chave e tente novamente.
-        </p>
-      </section>
-    );
-  }
-
-  const rows = refunds ?? [];
-  const payoutRows = payouts ?? [];
-
+  // D-06: no page-level loading/error early-return here. Each AdminQueueTable
+  // instance below resolves its own loading/error/empty state — a failure
+  // in one queue no longer hides the other (the bug this fixes lived at
+  // L202-220 of the pre-extraction file).
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-    <section
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '20px 22px 32px',
-      }}
-    >
-      <h2
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--paper)' }}>
+      <header
         style={{
-          fontFamily: '"Baloo 2", system-ui, sans-serif',
-          fontWeight: 800,
-          fontSize: '1.4rem',
-          color: 'var(--ink)',
-          marginBottom: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: isWeb ? '20px 32px' : '16px 22px',
+          borderBottom: '1px solid var(--line)',
+          background: 'var(--paper)',
         }}
       >
-        Fila de reembolso
-      </h2>
-      <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: 18 }}>
-        Desafios cancelados com pagamentos a devolver manualmente via Pix.
-      </p>
-
-      {rows.length === 0 ? (
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--line)',
-            borderRadius: 18,
-            padding: '24px 18px',
-            textAlign: 'center',
-            color: 'var(--muted)',
-            fontWeight: 600,
-          }}
-        >
-          Nenhum reembolso pendente. 🎉
-        </div>
-      ) : (
-        rows.map((row) => (
-          <div
-            key={row.id}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+          <h1
             style={{
-              background: 'var(--card)',
-              border: '1px solid var(--line)',
-              borderRadius: 16,
-              padding: '14px 16px',
-              marginBottom: 12,
+              fontFamily: '"Baloo 2", system-ui, sans-serif',
+              fontWeight: 800,
+              fontSize: '1.6rem',
+              color: 'var(--ink)',
+              lineHeight: 1.1,
             }}
           >
-            <div
-              style={{
-                fontFamily: '"Baloo 2", system-ui, sans-serif',
-                fontWeight: 700,
-                fontSize: '1rem',
-                color: 'var(--ink)',
-                marginBottom: 6,
-              }}
-            >
-              {row.challengeTitle}
-            </div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--ink)', marginBottom: 2 }}>
-              <strong>{row.participantName}</strong>
-            </div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--ink)', marginBottom: 2 }}>
-              R$ {parseFloat(row.amount).toFixed(2).replace('.', ',')}
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 12 }}>
-              Pix: {row.pixKey ?? 'não informada'}
-            </div>
-            <button
-              type="button"
-              onClick={() => markRefundedMutation.mutate(row.id)}
-              disabled={markRefundedMutation.isPending}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-                fontFamily: '"Baloo 2", system-ui, sans-serif',
-                fontWeight: 700,
-                fontSize: '0.9rem',
-                padding: '11px 18px',
-                borderRadius: 14,
-                border: 'none',
-                background: 'var(--green-bright)',
-                color: 'var(--green-ink)',
-                cursor: markRefundedMutation.isPending ? 'not-allowed' : 'pointer',
-                opacity: markRefundedMutation.isPending ? 0.6 : 1,
-              }}
-            >
-              {markRefundedMutation.isPending ? 'Marcando...' : 'Marcar reembolsado'}
-            </button>
-          </div>
-        ))
-      )}
-    </section>
+            Painel admin
+          </h1>
+          {countersLabel && (
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)' }}>{countersLabel}</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleSair}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            color: 'var(--muted)',
+            fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'var(--coral)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--muted)';
+          }}
+        >
+          Sair
+        </button>
+      </header>
 
-    <section
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '0 22px 32px',
-      }}
-    >
-      <h2
+      <main
         style={{
-          fontFamily: '"Baloo 2", system-ui, sans-serif',
-          fontWeight: 800,
-          fontSize: '1.4rem',
-          color: 'var(--ink)',
-          marginBottom: 4,
+          flex: 1,
+          overflowY: 'auto',
+          padding: isWeb ? (isDesktop ? '32px 32px 0' : '24px 24px 0') : '20px 22px 0',
         }}
       >
-        Fila de repasse de prêmios
-      </h2>
-      <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: 18 }}>
-        Prêmios finalizados aguardando o envio manual do Pix ao vencedor.
-      </p>
-
-      {isPayoutsLoading ? (
-        <span
-          style={{
-            display: 'inline-block',
-            width: 32,
-            height: 32,
-            border: '3px solid var(--mint-deep)',
-            borderTopColor: 'var(--green)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-            alignSelf: 'center',
-          }}
+        <AdminQueueTable
+          title="Fila de reembolso"
+          subtitle="Desafios cancelados com pagamentos a devolver manualmente via Pix."
+          rows={refunds}
+          isLoading={isRefundsLoading}
+          isError={isRefundsError}
+          emptyLabel="Nenhum reembolso pendente. 🎉"
+          errorLabel="Não foi possível carregar a fila de reembolso. Verifique a chave e tente novamente."
+          personLabel={(row) => row.participantName}
+          actionLabel="Marcar reembolsado"
+          pendingActionLabel="Marcando..."
+          onConfirmAction={(id) => markRefundedMutation.mutate(id)}
+          isActionPending={markRefundedMutation.isPending}
+          isWeb={isWeb}
         />
-      ) : isPayoutsError ? (
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--line)',
-            borderRadius: 18,
-            padding: '24px 18px',
-            textAlign: 'center',
-            color: 'var(--muted)',
-            fontWeight: 600,
-          }}
-        >
-          Não foi possível carregar a fila de repasse. Verifique a chave e tente novamente.
-        </div>
-      ) : payoutRows.length === 0 ? (
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--line)',
-            borderRadius: 18,
-            padding: '24px 18px',
-            textAlign: 'center',
-            color: 'var(--muted)',
-            fontWeight: 600,
-          }}
-        >
-          Nenhum repasse pendente. 🎉
-        </div>
-      ) : (
-        payoutRows.map((row) => (
-          <div
-            key={row.id}
-            style={{
-              background: 'var(--card)',
-              border: '1px solid var(--line)',
-              borderRadius: 16,
-              padding: '14px 16px',
-              marginBottom: 12,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: '"Baloo 2", system-ui, sans-serif',
-                fontWeight: 700,
-                fontSize: '1rem',
-                color: 'var(--ink)',
-                marginBottom: 6,
-              }}
-            >
-              {row.challengeTitle}
-            </div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--ink)', marginBottom: 2 }}>
-              <strong>{row.winnerName}</strong>
-            </div>
-            <div style={{ fontSize: '0.9rem', color: 'var(--ink)', marginBottom: 2 }}>
-              R$ {parseFloat(row.amount).toFixed(2).replace('.', ',')}
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 12 }}>
-              Pix: {row.pixKey ?? 'não informada'}
-            </div>
-            <button
-              type="button"
-              onClick={() => markPaidOutMutation.mutate(row.id)}
-              disabled={markPaidOutMutation.isPending}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-                fontFamily: '"Baloo 2", system-ui, sans-serif',
-                fontWeight: 700,
-                fontSize: '0.9rem',
-                padding: '11px 18px',
-                borderRadius: 14,
-                border: 'none',
-                background: 'var(--green-bright)',
-                color: 'var(--green-ink)',
-                cursor: markPaidOutMutation.isPending ? 'not-allowed' : 'pointer',
-                opacity: markPaidOutMutation.isPending ? 0.6 : 1,
-              }}
-            >
-              {markPaidOutMutation.isPending ? 'Marcando...' : 'Marcar enviado'}
-            </button>
-          </div>
-        ))
-      )}
-    </section>
+        <AdminQueueTable
+          title="Fila de repasse de prêmios"
+          subtitle="Prêmios finalizados aguardando o envio manual do Pix ao vencedor."
+          rows={payouts}
+          isLoading={isPayoutsLoading}
+          isError={isPayoutsError}
+          emptyLabel="Nenhum repasse pendente. 🎉"
+          errorLabel="Não foi possível carregar a fila de repasse. Verifique a chave e tente novamente."
+          personLabel={(row) => row.winnerName}
+          actionLabel="Marcar enviado"
+          pendingActionLabel="Marcando..."
+          onConfirmAction={(id) => markPaidOutMutation.mutate(id)}
+          isActionPending={markPaidOutMutation.isPending}
+          isWeb={isWeb}
+        />
+      </main>
     </div>
   );
 }
