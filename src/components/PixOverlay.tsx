@@ -33,6 +33,7 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
     challengeSummary,
     isExpired,
     countdown,
+    isPending,
     isError,
     errorMessage,
     retry,
@@ -111,8 +112,8 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
             </p>
             <PrimaryButton
               onClick={() => chargeMutation.mutate(pixKey || undefined)}
-              loading={chargeMutation.isPending}
-              disabled={chargeMutation.isPending}
+              loading={isPending}
+              disabled={isPending}
             >
               Gerar novo QR code
             </PrimaryButton>
@@ -324,7 +325,7 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
             {errorMessage && (
               <p style={{ color: 'var(--muted)', fontSize: '0.78rem', marginBottom: 20 }}>{errorMessage}</p>
             )}
-            <PrimaryButton onClick={retry} loading={chargeMutation.isPending} disabled={chargeMutation.isPending}>
+            <PrimaryButton onClick={retry} loading={isPending} disabled={isPending}>
               Tentar de novo
             </PrimaryButton>
             <div style={{ marginTop: 14 }}>
@@ -343,7 +344,7 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
             </div>
           </div>
         ) : (
-          chargeMutation.isPending && (
+          isPending && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
               <span
                 style={{

@@ -35,6 +35,7 @@ function PayPage() {
     pixKey,
     setPixKey,
     challengeSummary,
+    isPending,
     isError,
     errorMessage,
     retry,
@@ -152,7 +153,7 @@ function PayPage() {
         </div>
       )}
 
-      {chargeMutation.isPending && !charge && (
+      {isPending && !charge && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
           <span
             style={{
@@ -236,8 +237,8 @@ function PayPage() {
             <div style={{ marginTop: 8 }}>
               <PrimaryButton
                 onClick={() => chargeMutation.mutate(pixKey || undefined)}
-                loading={chargeMutation.isPending}
-                disabled={chargeMutation.isPending}
+                loading={isPending}
+                disabled={isPending}
               >
                 Gerar novo QR
               </PrimaryButton>
@@ -280,7 +281,7 @@ function PayPage() {
             <p style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 4 }}>{errorMessage}</p>
           )}
           <div style={{ marginTop: 16 }}>
-            <PrimaryButton onClick={retry} loading={chargeMutation.isPending} disabled={chargeMutation.isPending}>
+            <PrimaryButton onClick={retry} loading={isPending} disabled={isPending}>
               Tentar de novo
             </PrimaryButton>
           </div>
