@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -30,6 +31,11 @@ const SignupRoute = SignupRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/challenges/$challengeId': typeof ChallengesChallengeIdRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/challenges/$challengeId': typeof ChallengesChallengeIdRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/home': typeof HomeRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/signup': typeof SignupRoute
   '/challenges/$challengeId': typeof ChallengesChallengeIdRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/home'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/signup'
     | '/challenges/$challengeId'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/home'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/signup'
     | '/challenges/$challengeId'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/home'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/signup'
     | '/challenges/$challengeId'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   HomeRoute: typeof HomeRoute
   LoginRoute: typeof LoginRoute
+  NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
   SignupRoute: typeof SignupRoute
   ChallengesChallengeIdRoute: typeof ChallengesChallengeIdRoute
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   HomeRoute: HomeRoute,
   LoginRoute: LoginRoute,
+  NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
   SignupRoute: SignupRoute,
   ChallengesChallengeIdRoute: ChallengesChallengeIdRoute,
