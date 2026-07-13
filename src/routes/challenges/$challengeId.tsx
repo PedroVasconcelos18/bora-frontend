@@ -1160,8 +1160,16 @@ function ChallengeDetailPage() {
 
           {pixModalOpen &&
             (pixModalSource === 'autopay' && token ? (
-              // D-13: accept-and-pay path — fires POST /invites/:token/accept-and-pay
-              <PixOverlay token={token} title={challenge.title} onClose={() => setPixModalOpen(false)} />
+              // D-13: accept-and-pay path — fires POST /invites/:token/accept-and-pay.
+              // challengeId is load-bearing even here: once the invite token has been
+              // consumed, the charge path switches to /participants/me/pay and a
+              // user-initiated regenerate has nowhere to go without it.
+              <PixOverlay
+                token={token}
+                challengeId={challenge.id}
+                title={challenge.title}
+                onClose={() => setPixModalOpen(false)}
+              />
             ) : (
               // Manual "Pagar minha entrada" path — fires POST /participants/me/pay
               <PixOverlay

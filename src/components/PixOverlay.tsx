@@ -35,6 +35,7 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
     countdown,
     isPending,
     isError,
+    isInviteConsumed,
     errorMessage,
     retry,
   } = usePixPayment({ challengeId, token });
@@ -291,6 +292,62 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
               Pagar depois
             </a>
           </>
+        ) : isInviteConsumed ? (
+          // ALREADY-USED INVITE — deliberately placed AFTER the `charge` branch
+          // (a restored/live charge always wins) and BEFORE `isError` (a consumed
+          // invite must never fall through into the failure card). This is not a
+          // failure: the person is already in the challenge and nothing is wrong
+          // with their money. The button below is the ONLY thing that may create a
+          // replacement charge — a mount never can.
+          <div style={{ textAlign: 'center', padding: '34px 0 0' }}>
+            <span
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: '50%',
+                background: 'var(--mint)',
+                border: '2px solid var(--mint-deep)',
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: '2rem',
+                margin: '0 auto 16px',
+              }}
+            >
+              🎟️
+            </span>
+            <h2
+              style={{
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                fontWeight: 800,
+                fontSize: '1.4rem',
+                color: 'var(--ink)',
+                marginBottom: 10,
+              }}
+            >
+              Esse convite já foi usado
+            </h2>
+            <p style={{ color: 'var(--muted)', fontWeight: 600, marginBottom: 20 }}>
+              Você já tá na turma desse desafio — um link de convite só funciona uma vez. Se a sua
+              entrada ainda não foi paga, é só gerar um novo QR code aqui mesmo.
+            </p>
+            <PrimaryButton onClick={retry} loading={isPending} disabled={isPending}>
+              Gerar QR code
+            </PrimaryButton>
+            <div style={{ marginTop: 14 }}>
+              <a
+                onClick={onClose}
+                style={{
+                  color: 'var(--green)',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                }}
+              >
+                Pagar depois
+              </a>
+            </div>
+          </div>
         ) : isError ? (
           <div style={{ textAlign: 'center', padding: '34px 0 0' }}>
             <span
