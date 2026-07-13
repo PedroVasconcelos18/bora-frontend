@@ -32,6 +32,125 @@ interface UsePixPaymentArgs {
 }
 
 /**
+ * ChargeError — a charge failure that remembers WHICH path it failed on.
+ *
+ * A 404 on the invite accept path means "this invite token was already
+ * consumed" (the user is already a participant and their money is fine), which
+ * is a completely different situation from "the PSP refused the charge". The
+ * hook can only tell them apart if the thrown error carries the status AND
+ * whether the token path was the one that was used.
+ */
+export class ChargeError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly usedTokenPath: boolean,
+  ) {
+    super(message);
+    this.name = 'ChargeError';
+  }
+}
+
+/**
+ * resolveChargeRequest — the SINGLE source of truth for which endpoint a charge
+ * targets. The mutation function must not re-derive this inline.
+ *
+ * Rule: use the invite accept path ONLY while `token` is present AND
+ * `tokenSpent` is false. Once the invite has been consumed (successful charge,
+ * cache hydrate, or a 404 from the backend) that token is dead forever, and
+ * every subsequent charge — including a user-initiated regenerate — must go
+ * through the participant charge path.
+ */
+export function resolveChargeRequest(args: {
+  token?: string;
+  challengeId?: string;
+  tokenSpent: boolean;
+  pixKey?: string;
+}): { path: string; body: Record<string, unknown> } {
+  const pixKey = args.pixKey || undefined;
+  if (args.token && !args.tokenSpent) {
+    return { path: `/invites/${args.token}/accept-and-pay`, body: { pixKey } };
+  }
+  return { path: '/participants/me/pay', body: { challengeId: args.challengeId, pixKey } };
+}
+
+/** Namespaced session-storage key for a token's cached charge. */
+export const pixChargeCacheKey = (token: string) => `bora.pix-charge.${token}`;
+
+/**
+ * The browser's session storage, or null when it does not exist (node/vitest)
+ * or is unreachable (Safari private mode throws on access).
+ *
+ * sessionStorage, deliberately NOT localStorage: a Pix QR is per-tab and must
+ * not outlive the session on a shared machine.
+ */
+function getStore(): Storage | null {
+  try {
+    const store = (globalThis as { sessionStorage?: Storage }).sessionStorage;
+    return store ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Shape guard — a stored record is only usable if it carries a userId and a charge with a QR. */
+function isCachedRecord(v: unknown): v is { userId: string; charge: ChargeResult } {
+  if (!v || typeof v !== 'object') return false;
+  const rec = v as { userId?: unknown; charge?: unknown };
+  if (typeof rec.userId !== 'string' || !rec.charge || typeof rec.charge !== 'object') return false;
+  const charge = rec.charge as Partial<ChargeResult>;
+  return (
+    typeof charge.qrCode === 'string' &&
+    typeof charge.qrCodeBase64 === 'string' &&
+    typeof charge.expiresAt === 'string' &&
+    typeof charge.participantId === 'string' &&
+    typeof charge.challengeId === 'string'
+  );
+}
+
+/**
+ * readCachedCharge — the durable half of the remount guard.
+ *
+ * The backend NEVER persists the QR / copia-e-cola / expiry (only externalId +
+ * status), so after a remount this cache is the ONLY way to put the invitee's
+ * live charge back on screen. Returns null on: no store, no key, bad JSON, bad
+ * shape, or a userId that is not the logged-in user (a stale entry must never
+ * render one person's charge into another account in the same tab). Never throws.
+ */
+export function readCachedCharge(
+  token: string,
+  userId: string,
+  store: Storage | null = getStore(),
+): ChargeResult | null {
+  if (!store) return null;
+  try {
+    const raw = store.getItem(pixChargeCacheKey(token));
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isCachedRecord(parsed)) return null;
+    if (parsed.userId !== userId) return null;
+    return parsed.charge;
+  } catch {
+    return null;
+  }
+}
+
+/** writeCachedCharge — the ONLY writer. Silent no-op with no store or on a quota throw. */
+export function writeCachedCharge(
+  token: string,
+  userId: string,
+  charge: ChargeResult,
+  store: Storage | null = getStore(),
+): void {
+  if (!store) return;
+  try {
+    store.setItem(pixChargeCacheKey(token), JSON.stringify({ userId, charge }));
+  } catch {
+    /* quota / private mode — the cache is an optimisation, never a hard dependency */
+  }
+}
+
+/**
  * usePixPayment — the shared Pix payment core (D-12).
  *
  * Extracted, byte-for-byte, from the charge/poll/regenerate logic that used
@@ -68,23 +187,39 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
   const { user } = useAuthStore();
   const [pixKey, setPixKey] = useState('');
   const [charge, setCharge] = useState<ChargeResult | null>(null);
-  const [phase, setPhase] = useState<'idle' | 'pending' | 'error'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'pending' | 'error' | 'invite-consumed'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const firedOnce = useRef(false);
 
+  // Refs, NOT state: the mutation function must read their CURRENT value at
+  // mutate() time, never a stale render closure.
+  const chargeRef = useRef<ChargeResult | null>(null);
+  // True once the invite token has been consumed. Set in exactly three places:
+  // a successful charge, a hydrate-from-cache hit, and a backend 404 on the
+  // token path. Once true, the token path is dead and resolveChargeRequest
+  // sends every further charge to the participant endpoint.
+  const tokenSpentRef = useRef(false);
+
   // Both the invitee ("aceitar e pagar") and creator ("pagar minha entrada")
-  // paths converge on the same charge request here (D-13) — only the target
-  // path + body shape differ depending on whether we arrived via an invite token.
+  // paths converge on the same charge request here (D-13) — resolveChargeRequest
+  // is the single source of truth for which endpoint is targeted.
   const chargeMutation = useMutation({
     mutationFn: async (key: string | undefined) => {
-      const path = token ? `/invites/${token}/accept-and-pay` : '/participants/me/pay';
-      const body = token
-        ? { pixKey: key || undefined }
-        : { challengeId: challengeIdParam, pixKey: key || undefined };
+      const usedTokenPath = !!token && !tokenSpentRef.current;
+      const { path, body } = resolveChargeRequest({
+        token,
+        challengeId: chargeRef.current?.challengeId ?? challengeIdParam,
+        tokenSpent: tokenSpentRef.current,
+        pixKey: key,
+      });
       const res = await apiClient.post(path, body);
       if (!res.ok) {
         const errBody = (await res.json().catch(() => ({}))) as { message?: string };
-        throw new Error(errBody.message ?? 'Erro ao gerar cobrança Pix. Tente novamente.');
+        throw new ChargeError(
+          errBody.message ?? 'Erro ao gerar cobrança Pix. Tente novamente.',
+          res.status,
+          usedTokenPath,
+        );
       }
       return (await res.json()) as ChargeResult;
     },
@@ -99,10 +234,24 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
       setErrorMessage(null);
     },
     onSuccess: (data) => {
+      chargeRef.current = data;
+      tokenSpentRef.current = true;
       setCharge(data);
       setPhase('idle');
+      // The ONLY writer of the durable cache. Without this line the mount
+      // hydrate below has nothing to read and the whole remount fix is inert.
+      if (token && user) writeCachedCharge(token, user.id, data);
     },
     onError: (err: Error) => {
+      // ALREADY-CONSUMED INVITE, not a payment failure: the backend rejected
+      // the token because this person is already in the challenge. Their money
+      // is fine — do not shout a scary failure at them.
+      if (err instanceof ChargeError && err.usedTokenPath && err.status === 404) {
+        tokenSpentRef.current = true; // never touch the dead token path again
+        setPhase('invite-consumed');
+        setErrorMessage(null);
+        return;
+      }
       const message = err.message ?? 'Erro ao gerar cobrança Pix.';
       setPhase('error');
       setErrorMessage(message);
@@ -114,14 +263,35 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
   // the mutation result snapshot.
   const isPending = phase === 'pending';
   const isError = phase === 'error';
+  const isInviteConsumed = phase === 'invite-consumed';
 
-  // Fire the initial charge exactly once on mount (per plan: "on mount it
-  // POSTs to the charge endpoint"). Regeneration reuses the same mutation
-  // with whatever pixKey the user has typed since.
+  // Fire the initial charge exactly once on mount — but ONLY after checking the
+  // durable per-token cache first.
+  //
+  // THE EARLY RETURN BELOW IS THE ZERO-EXTRA-POST GUARANTEE. `firedOnce` is a
+  // per-mount ref, so it dies with the component: a browser Back→Forward onto
+  // the ?autopay=true URL remounts this hook with a fresh latch and would
+  // re-POST accept-and-pay against an already-consumed token (404) — painting a
+  // FALSE failure card over a charge that actually succeeded. Hydrating from the
+  // session cache restores the real charge (QR, countdown, polling all key off
+  // it) with zero network writes, which makes revisiting the autopay URL inert
+  // by construction. No history rewriting needed; the user's live QR survives.
   useEffect(() => {
     if (!user || firedOnce.current) return;
     if (!challengeIdParam && !token) return;
     firedOnce.current = true;
+
+    if (token) {
+      const cached = readCachedCharge(token, user.id);
+      if (cached) {
+        chargeRef.current = cached;
+        tokenSpentRef.current = true;
+        setCharge(cached);
+        setPhase('idle');
+        return; // <- no mutate(). No POST. No second Mercado Pago charge.
+      }
+    }
+
     chargeMutation.mutate(undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, challengeIdParam, token]);
@@ -220,6 +390,7 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
     countdown,
     isPending,
     isError,
+    isInviteConsumed,
     errorMessage,
     retry,
   };
