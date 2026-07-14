@@ -13,6 +13,8 @@ import { showToast } from '../../components/Toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
 import { parseInvitees } from '../../lib/prize';
+import { CHALLENGE_LIMITS, validateChallengeForm } from '../../lib/challenge-limits';
+import { CollabStepper } from '../../components/CollabStepper';
 
 export const Route = createFileRoute('/challenges/new')({
   component: NewChallengePage,
@@ -48,7 +50,7 @@ function NewChallengePage() {
   const [copyableLinks, setCopyableLinks] = useState<InviteLink[]>([]);
   const [createdChallengeId, setCreatedChallengeId] = useState<string | null>(null);
 
-  const { register, handleSubmit, watch } = useForm<ChallengeFormData>({
+  const { register, handleSubmit, watch, setValue } = useForm<ChallengeFormData>({
     defaultValues: {
       title: '',
       durationDays: 14,
@@ -71,23 +73,17 @@ function NewChallengePage() {
   if (!user) return null;
 
   const onSubmit = async (data: ChallengeFormData) => {
-    // Frontend validation — same rules as backend, shown as toasts (verbatim from Copywriting Contract)
-    if (!data.title.trim()) {
-      showToast('Dá um nome pro desafio 🙂');
-      return;
-    }
-    if (Number(data.durationDays) < 3) {
-      showToast('A duração mínima é de 3 dias.');
-      return;
-    }
-    if (Number(data.collabAmount) < 5) {
-      showToast('A colaboração mínima é R$ 5.');
-      return;
-    }
-
+    // Frontend validation — same rules as backend (min AND max), shown as
+    // toasts. Single source of truth: lib/challenge-limits.ts.
     const invitees = parseInvitees(data.inviteesText);
-    if (invitees.length < 2) {
-      showToast('Convide pelo menos 2 amigos (mínimo de 3 pessoas).');
+    const validationError = validateChallengeForm({
+      title: data.title,
+      durationDays: Number(data.durationDays),
+      collabAmount: Number(data.collabAmount),
+      invitees,
+    });
+    if (validationError) {
+      showToast(validationError);
       return;
     }
 
@@ -275,8 +271,8 @@ function NewChallengePage() {
             <input
               id="durationDays"
               type="number"
-              min={3}
-              max={90}
+              min={CHALLENGE_LIMITS.durationDays.min}
+              max={CHALLENGE_LIMITS.durationDays.max}
               {...register('durationDays', { valueAsNumber: true })}
               style={{
                 width: '100%',
@@ -309,27 +305,34 @@ function NewChallengePage() {
             >
               Colaboração por pessoa (R$, via Pix)
             </label>
-            <input
-              id="collabAmount"
-              type="number"
-              min={5}
-              step={5}
-              {...register('collabAmount', { valueAsNumber: true })}
-              style={{
-                width: '100%',
-                padding: '14px 16px',
-                borderRadius: 14,
-                border: '2px solid var(--line)',
-                background: 'var(--card)',
-                fontSize: '1rem',
-                fontFamily: 'inherit',
-                transition: 'border 0.15s',
-                color: 'var(--ink)',
-                outline: 'none',
-              }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
-            />
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <CollabStepper
+                value={Number(collabAmount)}
+                onChange={(next) => setValue('collabAmount', next, { shouldDirty: true })}
+              />
+              <input
+                id="collabAmount"
+                type="number"
+                min={CHALLENGE_LIMITS.collabAmount.min}
+                max={CHALLENGE_LIMITS.collabAmount.max}
+                step={CHALLENGE_LIMITS.collabAmount.step}
+                {...register('collabAmount', { valueAsNumber: true })}
+                style={{
+                  flex: 1,
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  border: '2px solid var(--line)',
+                  background: 'var(--card)',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  transition: 'border 0.15s',
+                  color: 'var(--ink)',
+                  outline: 'none',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+              />
+            </div>
           </div>
 
           {/* Convidar amigos */}
@@ -504,8 +507,8 @@ function NewChallengePage() {
               <input
                 id="durationDays-web"
                 type="number"
-                min={3}
-                max={90}
+                min={CHALLENGE_LIMITS.durationDays.min}
+                max={CHALLENGE_LIMITS.durationDays.max}
                 {...register('durationDays', { valueAsNumber: true })}
                 style={{
                   width: '100%',
@@ -538,27 +541,35 @@ function NewChallengePage() {
               >
                 Colaboração por pessoa (R$, via Pix)
               </label>
-              <input
-                id="collabAmount-web"
-                type="number"
-                min={5}
-                step={5}
-                {...register('collabAmount', { valueAsNumber: true })}
-                style={{
-                  width: '100%',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  border: '2px solid var(--line)',
-                  background: 'var(--card)',
-                  fontSize: '1rem',
-                  fontFamily: 'inherit',
-                  transition: 'border 0.15s',
-                  color: 'var(--ink)',
-                  outline: 'none',
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
-              />
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <CollabStepper
+                  value={Number(collabAmount)}
+                  onChange={(next) => setValue('collabAmount', next, { shouldDirty: true })}
+                  idSuffix="web"
+                />
+                <input
+                  id="collabAmount-web"
+                  type="number"
+                  min={CHALLENGE_LIMITS.collabAmount.min}
+                  max={CHALLENGE_LIMITS.collabAmount.max}
+                  step={CHALLENGE_LIMITS.collabAmount.step}
+                  {...register('collabAmount', { valueAsNumber: true })}
+                  style={{
+                    flex: 1,
+                    padding: '14px 16px',
+                    borderRadius: 14,
+                    border: '2px solid var(--line)',
+                    background: 'var(--card)',
+                    fontSize: '1rem',
+                    fontFamily: 'inherit',
+                    transition: 'border 0.15s',
+                    color: 'var(--ink)',
+                    outline: 'none',
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+                />
+              </div>
             </div>
 
             {/* Convidar amigos */}
