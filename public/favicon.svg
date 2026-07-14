@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Bora">
+  <rect width="64" height="64" rx="20" fill="#2BD86B"/>
+  <path
+    fill="#0B3B22"
+    fill-rule="evenodd"
+    d="M17 12 H37 a10 10 0 0 1 0 20 a10 10 0 0 1 0 20 H17 Z
+       M27 18 H36 a4 4 0 0 1 0 8 H27 Z
+       M27 38 H36 a4 4 0 0 1 0 8 H27 Z"
+  />
+</svg>
