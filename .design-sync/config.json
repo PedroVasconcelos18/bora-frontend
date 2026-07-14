@@ -1,0 +1,36 @@
+{
+  "pkg": "bora-frontend",
+  "globalName": "BoraDS",
+  "projectId": "bff20e26-db00-459b-9a46-75f02838aeaf",
+  "shape": "package",
+  "srcDir": "src",
+  "tsconfig": "tsconfig.app.json",
+  "cssEntry": ".design-sync/styles-entry.css",
+  "runtimeFontPrefixes": ["Baloo 2", "Plus Jakarta Sans"],
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "ToastContainer": { "cardMode": "single", "primaryStory": "Notificacao" }
+  },
+  "componentSrcMap": {
+    "AppBar": "src/components/AppBar.tsx",
+    "ChallengeCard": "src/components/ChallengeCard.tsx",
+    "CopyableInviteLink": "src/components/CopyableInviteLink.tsx",
+    "DisclaimerFooter": "src/components/DisclaimerFooter.tsx",
+    "EmojiPicker": "src/components/EmojiPicker.tsx",
+    "EvidenceStatusBadge": "src/components/EvidenceStatusBadge.tsx",
+    "EvidenceUploadCard": "src/components/EvidenceUploadCard.tsx",
+    "FormField": "src/components/FormField.tsx",
+    "InviteCard": "src/components/InviteCard.tsx",
+    "NotBetBlock": "src/components/NotBetBlock.tsx",
+    "PrimaryButton": "src/components/PrimaryButton.tsx",
+    "PrizeCalculator": "src/components/PrizeCalculator.tsx",
+    "RankingList": "src/components/RankingList.tsx",
+    "SegmentedTabs": "src/components/SegmentedTabs.tsx",
+    "StatusPill": "src/components/StatusPill.tsx",
+    "StreakGrid": "src/components/StreakGrid.tsx",
+    "TabBar": "src/components/TabBar.tsx",
+    "ToastContainer": "src/components/Toast.tsx",
+    "VoteCard": "src/components/VoteCard.tsx",
+    "WaitingRoomList": "src/components/WaitingRoomList.tsx"
+  }
+}
