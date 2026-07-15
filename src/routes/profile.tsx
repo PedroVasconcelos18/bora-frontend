@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth.store';
 import { apiClient } from '../api/client';
 import { NotBetBlock } from '../components/NotBetBlock';
+import { PixKeyCard } from '../components/PixKeyCard';
 import { ChallengeCard } from '../components/ChallengeCard';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../lib/breakpoints';
@@ -211,6 +212,11 @@ function ProfilePage() {
         </div>
       </div>
 
+      {/* T-i98 D-1/D-3: profile-level Pix key editor (mobile) */}
+      <div style={{ marginBottom: 16 }}>
+        <PixKeyCard />
+      </div>
+
       {/* "Não é aposta" block — PROF-02 (above logout button) */}
       <div style={{ marginBottom: 16 }}>
         <NotBetBlock />
@@ -393,6 +399,9 @@ function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* T-i98 D-1/D-3: profile-level Pix key editor (web) */}
+          <PixKeyCard />
 
           <NotBetBlock />
 

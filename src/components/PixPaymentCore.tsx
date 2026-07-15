@@ -26,6 +26,10 @@ export interface PaymentStatus {
   challengeStatus: string;
 }
 
+interface ProfilePixKey {
+  pixKey: string | null;
+}
+
 interface UsePixPaymentArgs {
   challengeId?: string;
   token?: string;
@@ -185,11 +189,43 @@ export function writeCachedCharge(
  */
 export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPaymentArgs) {
   const { user } = useAuthStore();
-  const [pixKey, setPixKey] = useState('');
+  const [pixKey, setPixKeyInternal] = useState('');
   const [charge, setCharge] = useState<ChargeResult | null>(null);
   const [phase, setPhase] = useState<'idle' | 'pending' | 'error' | 'invite-consumed'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const firedOnce = useRef(false);
+
+  // D-1 (T-i98): the pay screen's Pix key field PREFILLS from the user's
+  // saved profile key, but a per-challenge value the user types still
+  // overrides it. Shares the ['profile'] cache key with PixKeyCard so both
+  // read the same query result — no extra network round trip beyond the
+  // first fetch.
+  const { data: profile } = useQuery<ProfilePixKey>({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const res = await apiClient.get('/profile');
+      if (!res.ok) throw new Error('profile-error');
+      return (await res.json()) as ProfilePixKey;
+    },
+    enabled: !!user,
+  });
+
+  // True once the user has typed into the field themselves — the prefill
+  // effect below must never clobber a value the user is actively editing.
+  const userEditedRef = useRef(false);
+  const setPixKey = useCallback((value: string) => {
+    userEditedRef.current = true;
+    setPixKeyInternal(value);
+  }, []);
+
+  // Seed the field from the profile key exactly once, only while the field
+  // is still untouched and empty — never overwrites a typed-in value, and
+  // never fires again once the user starts editing.
+  useEffect(() => {
+    if (profile?.pixKey && !userEditedRef.current && pixKey === '') {
+      setPixKeyInternal(profile.pixKey);
+    }
+  }, [profile?.pixKey, pixKey]);
 
   // Refs, NOT state: the mutation function must read their CURRENT value at
   // mutate() time, never a stale render closure.
