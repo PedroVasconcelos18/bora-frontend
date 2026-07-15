@@ -83,6 +83,10 @@ interface MyPayout {
   amount: string;
 }
 
+interface ProfilePixKey {
+  pixKey: string | null;
+}
+
 interface WaitingRoomStatus {
   status: string;
   deadline: string;
@@ -368,6 +372,21 @@ function ChallengeDetailPage() {
     enabled: !!challenge && challenge.status === 'FINISHED',
     refetchOnWindowFocus: true,
   });
+
+  // D-3 (T-i98): a pending-payout winner with no profile Pix key on file
+  // sees a cash-out nudge. Reuses the exact ['profile'] query key that
+  // PixKeyCard / PixPaymentCore already read, so it dedupes with either
+  // cache entry rather than firing a fresh request.
+  const { data: profile } = useQuery<ProfilePixKey>({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const res = await apiClient.get('/profile');
+      if (!res.ok) throw new Error('profile-error');
+      return (await res.json()) as ProfilePixKey;
+    },
+    enabled: challenge?.status === 'FINISHED' && myPayout?.status === 'PAYOUT_PENDING',
+  });
+  const winnerNeedsPixKey = myPayout?.status === 'PAYOUT_PENDING' && !profile?.pixKey;
 
   // Tracks which evidence's card is mid-vote so only the tapped card shows
   // its buttons' loading state (not the whole list).
@@ -899,7 +918,7 @@ function ChallengeDetailPage() {
           surfaces who won via leaders). */}
       {challenge.status === 'FINISHED' && (
         <div style={{ marginBottom: 16 }}>
-          {myPayout && <WinnerBanner payout={myPayout} />}
+          {myPayout && <WinnerBanner payout={myPayout} needsPixKey={winnerNeedsPixKey} />}
           <RankingPanel isLoading={isRankingLoading} ranking={ranking} />
         </div>
       )}
@@ -1446,10 +1465,28 @@ function ChallengeDetailPage() {
                         ●
                       </span>
                       {myPayout ? (
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)' }}>
-                          {myPayout.status === 'PAYOUT_PENDING'
-                            ? `🏆 Você venceu! Prêmio ${formatBRL(parseFloat(myPayout.amount))} — pendente ⏳`
-                            : '🏆 Prêmio enviado ✅'}
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--ink)' }}>
+                            {myPayout.status === 'PAYOUT_PENDING'
+                              ? `🏆 Você venceu! Prêmio ${formatBRL(parseFloat(myPayout.amount))} — pendente ⏳`
+                              : '🏆 Prêmio enviado ✅'}
+                          </div>
+                          {/* D-3 (T-i98): nudge only — never blocks viewing the challenge. */}
+                          {winnerNeedsPixKey && (
+                            <div style={{ marginTop: 4 }}>
+                              <Link
+                                to="/profile"
+                                style={{
+                                  color: 'var(--green)',
+                                  fontWeight: 700,
+                                  fontSize: '0.82rem',
+                                  textDecoration: 'underline',
+                                }}
+                              >
+                                Cadastre sua chave Pix pra receber o prêmio →
+                              </Link>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div>
@@ -1869,7 +1906,7 @@ function ChallengeDetailPage() {
  * server-created payout row's amount (payment.amount), never computed
  * client-side (T-04-15).
  */
-function WinnerBanner({ payout }: { payout: MyPayout }) {
+function WinnerBanner({ payout, needsPixKey }: { payout: MyPayout; needsPixKey?: boolean }) {
   const formattedAmount = parseFloat(payout.amount).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -1892,6 +1929,17 @@ function WinnerBanner({ payout }: { payout: MyPayout }) {
       {payout.status === 'PAYOUT_PENDING'
         ? `🏆 Você venceu! Prêmio ${formattedAmount} — pendente ⏳`
         : '🏆 Prêmio enviado ✅'}
+      {/* D-3 (T-i98): nudge only — never blocks viewing the challenge. */}
+      {needsPixKey && (
+        <div style={{ marginTop: 6 }}>
+          <Link
+            to="/profile"
+            style={{ color: 'var(--green)', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'underline' }}
+          >
+            Cadastre sua chave Pix pra receber o prêmio →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
