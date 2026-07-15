@@ -13,7 +13,7 @@ import { showToast } from '../../components/Toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
 import { parseInvitees } from '../../lib/prize';
-import { CHALLENGE_LIMITS, validateChallengeForm } from '../../lib/challenge-limits';
+import { CHALLENGE_LIMITS, clamp, validateChallengeForm } from '../../lib/challenge-limits';
 import { CollabStepper } from '../../components/CollabStepper';
 
 export const Route = createFileRoute('/challenges/new')({
@@ -287,7 +287,17 @@ function NewChallengePage() {
                 outline: 'none',
               }}
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--line)';
+                const raw = e.currentTarget.valueAsNumber;
+                if (Number.isFinite(raw)) {
+                  setValue(
+                    'durationDays',
+                    clamp(raw, CHALLENGE_LIMITS.durationDays.min, CHALLENGE_LIMITS.durationDays.max),
+                    { shouldDirty: true },
+                  );
+                }
+              }}
             />
           </div>
 
@@ -330,7 +340,17 @@ function NewChallengePage() {
                   outline: 'none',
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--line)';
+                  const raw = e.currentTarget.valueAsNumber;
+                  if (Number.isFinite(raw)) {
+                    setValue(
+                      'collabAmount',
+                      clamp(raw, CHALLENGE_LIMITS.collabAmount.min, CHALLENGE_LIMITS.collabAmount.max),
+                      { shouldDirty: true },
+                    );
+                  }
+                }}
               />
             </div>
           </div>
@@ -523,7 +543,17 @@ function NewChallengePage() {
                   outline: 'none',
                 }}
                 onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--line)';
+                  const raw = e.currentTarget.valueAsNumber;
+                  if (Number.isFinite(raw)) {
+                    setValue(
+                      'durationDays',
+                      clamp(raw, CHALLENGE_LIMITS.durationDays.min, CHALLENGE_LIMITS.durationDays.max),
+                      { shouldDirty: true },
+                    );
+                  }
+                }}
               />
             </div>
 
@@ -567,7 +597,17 @@ function NewChallengePage() {
                     outline: 'none',
                   }}
                   onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--line)';
+                    const raw = e.currentTarget.valueAsNumber;
+                    if (Number.isFinite(raw)) {
+                      setValue(
+                        'collabAmount',
+                        clamp(raw, CHALLENGE_LIMITS.collabAmount.min, CHALLENGE_LIMITS.collabAmount.max),
+                        { shouldDirty: true },
+                      );
+                    }
+                  }}
                 />
               </div>
             </div>
