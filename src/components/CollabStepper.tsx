@@ -18,6 +18,12 @@ const baseButtonStyle: CSSProperties = {
   fontSize: '1.1rem',
   cursor: 'pointer',
   fontFamily: 'inherit',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  lineHeight: 1,
+  boxSizing: 'border-box',
 };
 
 const disabledButtonStyle: CSSProperties = {

@@ -37,9 +37,14 @@ const removeButtonStyle: CSSProperties = {
   background: 'var(--card)',
   color: 'var(--muted)',
   fontSize: '1.2rem',
-  lineHeight: 1,
   cursor: 'pointer',
   fontFamily: 'inherit',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 0,
+  lineHeight: 1,
+  boxSizing: 'border-box',
 };
 
 const addButtonStyle: CSSProperties = {
