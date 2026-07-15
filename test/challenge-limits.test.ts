@@ -9,7 +9,29 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { stepCollab, validateChallengeForm, LIMIT_MESSAGES } from '../src/lib/challenge-limits';
+import { clamp, stepCollab, validateChallengeForm, LIMIT_MESSAGES } from '../src/lib/challenge-limits';
+
+describe('clamp', () => {
+  it('50 within [5,200] passes through unchanged', () => {
+    expect(clamp(50, 5, 200)).toBe(50);
+  });
+
+  it('2 below the 3 floor snaps up to 3', () => {
+    expect(clamp(2, 3, 365)).toBe(3);
+  });
+
+  it('400 above the 365 ceiling snaps down to 365', () => {
+    expect(clamp(400, 3, 365)).toBe(365);
+  });
+
+  it('exact floor boundary (3) is preserved', () => {
+    expect(clamp(3, 3, 365)).toBe(3);
+  });
+
+  it('exact ceiling boundary (365) is preserved', () => {
+    expect(clamp(365, 3, 365)).toBe(365);
+  });
+});
 
 describe('stepCollab', () => {
   it('50 + 1 step === 55', () => {

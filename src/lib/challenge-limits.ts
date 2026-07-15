@@ -35,6 +35,15 @@ export const LIMIT_MESSAGES = {
 } as const;
 
 /**
+ * Clamp a number into [min, max]. Pure passthrough — does NOT special-case
+ * non-finite input (NaN in, NaN out via Math.max/Math.min); callers decide
+ * whether NaN should pass through untouched or resolve to a floor/skip.
+ */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
  * Step the collaboration amount by one increment (+1) or decrement (-1),
  * clamped to [min, max]. Non-finite input (empty number field → NaN from
  * react-hook-form's valueAsNumber) resolves to the floor, never NaN.
@@ -45,7 +54,7 @@ export function stepCollab(current: number, direction: 1 | -1): number {
     return min;
   }
   const next = current + direction * step;
-  return Math.min(max, Math.max(min, next));
+  return clamp(next, min, max);
 }
 
 interface ChallengeFormInput {
