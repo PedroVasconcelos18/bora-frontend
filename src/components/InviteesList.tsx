@@ -7,8 +7,16 @@ interface InviteesListProps {
   idSuffix?: string;
 }
 
+const rowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  marginBottom: 8,
+};
+
 const inputStyle: CSSProperties = {
-  width: '100%',
+  flex: 1,
+  minWidth: 0,
   border: '2px solid var(--line)',
   borderRadius: 14,
   background: 'var(--card)',
@@ -18,7 +26,20 @@ const inputStyle: CSSProperties = {
   fontSize: '0.95rem',
   outline: 'none',
   transition: 'border 0.15s',
-  marginBottom: 8,
+};
+
+const removeButtonStyle: CSSProperties = {
+  flexShrink: 0,
+  width: 40,
+  height: 40,
+  border: '2px solid var(--line)',
+  borderRadius: 14,
+  background: 'var(--card)',
+  color: 'var(--muted)',
+  fontSize: '1.2rem',
+  lineHeight: 1,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
 };
 
 const addButtonStyle: CSSProperties = {
@@ -39,31 +60,45 @@ const addButtonStyle: CSSProperties = {
  * inside NewChallengePage would remount every render, making each input
  * lose focus on every keystroke.
  *
- * No remove button by design (CHALLENGE_LIMITS.invitees.min = 2): the
- * parent's derived `emails.join('\n')` string is filtered through
- * parseInvitees before submit/preview, so blank slots are harmless.
+ * Each row past the minimum (CHALLENGE_LIMITS.invitees.min = 2) carries a
+ * "×" remove button so an accidentally-added slot can be dropped; the first
+ * two rows have none, keeping the list from shrinking below the minimum.
+ * The parent's derived `emails.join('\n')` string is filtered through
+ * parseInvitees before submit/preview, so any blank slots are harmless.
  */
 export function InviteesList({ emails, onChange, idSuffix }: InviteesListProps) {
   const canAddMore = emails.length < CHALLENGE_LIMITS.invitees.max;
+  const canRemove = emails.length > CHALLENGE_LIMITS.invitees.min;
 
   return (
     <div>
       {emails.map((email, index) => (
-        <input
-          key={index}
-          id={`invitee-${index}${idSuffix ? `-${idSuffix}` : ''}`}
-          type="email"
-          value={email}
-          placeholder={`amigo${index + 1}@email.com`}
-          aria-label={`E-mail do convidado ${index + 1}`}
-          onChange={(e) => {
-            const value = e.currentTarget.value;
-            onChange(emails.map((v, i) => (i === index ? value : v)));
-          }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
-          style={inputStyle}
-        />
+        <div key={index} style={rowStyle}>
+          <input
+            id={`invitee-${index}${idSuffix ? `-${idSuffix}` : ''}`}
+            type="email"
+            value={email}
+            placeholder={`amigo${index + 1}@email.com`}
+            aria-label={`E-mail do convidado ${index + 1}`}
+            onChange={(e) => {
+              const value = e.currentTarget.value;
+              onChange(emails.map((v, i) => (i === index ? value : v)));
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+            style={inputStyle}
+          />
+          {canRemove && (
+            <button
+              type="button"
+              aria-label={`Remover convidado ${index + 1}`}
+              onClick={() => onChange(emails.filter((_, i) => i !== index))}
+              style={removeButtonStyle}
+            >
+              ×
+            </button>
+          )}
+        </div>
       ))}
       {canAddMore && (
         <button
