@@ -70,6 +70,37 @@ function NewChallengePage() {
   // same pattern as home.tsx/$challengeId.tsx.
   const isWeb = useMediaQuery(`(min-width: ${BREAKPOINTS.tablet}px)`);
 
+  // Live guard for the numeric fields: block the value from exceeding `max`
+  // or going negative WHILE typing (999 → 365 na hora; um "-" nunca fica
+  // negativo). The lower bound (min 3/5) stays on onBlur so a multi-digit
+  // number like "20" isn't snapped to the floor after the first keystroke.
+  // Composes with react-hook-form's own onChange so field tracking survives.
+  const withLiveMaxClamp = (
+    reg: ReturnType<typeof register>,
+    max: number,
+  ): ReturnType<typeof register> => ({
+    ...reg,
+    onChange: async (e) => {
+      await reg.onChange(e);
+      const raw = (e.target as HTMLInputElement).valueAsNumber;
+      if (Number.isFinite(raw)) {
+        const capped = clamp(raw, 0, max);
+        if (capped !== raw) {
+          setValue(reg.name as keyof ChallengeFormData, capped, { shouldDirty: true });
+        }
+      }
+    },
+  });
+
+  const durationReg = withLiveMaxClamp(
+    register('durationDays', { valueAsNumber: true }),
+    CHALLENGE_LIMITS.durationDays.max,
+  );
+  const collabReg = withLiveMaxClamp(
+    register('collabAmount', { valueAsNumber: true }),
+    CHALLENGE_LIMITS.collabAmount.max,
+  );
+
   if (!user) return null;
 
   const onSubmit = async (data: ChallengeFormData) => {
@@ -273,7 +304,7 @@ function NewChallengePage() {
               type="number"
               min={CHALLENGE_LIMITS.durationDays.min}
               max={CHALLENGE_LIMITS.durationDays.max}
-              {...register('durationDays', { valueAsNumber: true })}
+              {...durationReg}
               style={{
                 width: '100%',
                 padding: '14px 16px',
@@ -326,7 +357,7 @@ function NewChallengePage() {
                 min={CHALLENGE_LIMITS.collabAmount.min}
                 max={CHALLENGE_LIMITS.collabAmount.max}
                 step={CHALLENGE_LIMITS.collabAmount.step}
-                {...register('collabAmount', { valueAsNumber: true })}
+                {...collabReg}
                 style={{
                   flex: 1,
                   padding: '14px 16px',
@@ -508,7 +539,7 @@ function NewChallengePage() {
                 type="number"
                 min={CHALLENGE_LIMITS.durationDays.min}
                 max={CHALLENGE_LIMITS.durationDays.max}
-                {...register('durationDays', { valueAsNumber: true })}
+                {...durationReg}
                 style={{
                   width: '100%',
                   padding: '14px 16px',
@@ -562,7 +593,7 @@ function NewChallengePage() {
                   min={CHALLENGE_LIMITS.collabAmount.min}
                   max={CHALLENGE_LIMITS.collabAmount.max}
                   step={CHALLENGE_LIMITS.collabAmount.step}
-                  {...register('collabAmount', { valueAsNumber: true })}
+                  {...collabReg}
                   style={{
                     flex: 1,
                     padding: '14px 16px',
