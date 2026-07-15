@@ -15,6 +15,7 @@ import { BREAKPOINTS } from '../../lib/breakpoints';
 import { parseInvitees } from '../../lib/prize';
 import { CHALLENGE_LIMITS, clamp, validateChallengeForm } from '../../lib/challenge-limits';
 import { CollabStepper } from '../../components/CollabStepper';
+import { InviteesList } from '../../components/InviteesList';
 
 export const Route = createFileRoute('/challenges/new')({
   component: NewChallengePage,
@@ -24,7 +25,6 @@ interface ChallengeFormData {
   title: string;
   durationDays: number;
   collabAmount: number;
-  inviteesText: string;
 }
 
 interface InviteLink {
@@ -49,18 +49,18 @@ function NewChallengePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copyableLinks, setCopyableLinks] = useState<InviteLink[]>([]);
   const [createdChallengeId, setCreatedChallengeId] = useState<string | null>(null);
+  const [inviteeEmails, setInviteeEmails] = useState<string[]>(['', '']);
 
   const { register, handleSubmit, watch, setValue } = useForm<ChallengeFormData>({
     defaultValues: {
       title: '',
       durationDays: 14,
       collabAmount: 50,
-      inviteesText: '',
     },
   });
 
   // Watch for live prize calculator + preview updates (D-08 — no network call)
-  const inviteesText = watch('inviteesText');
+  const inviteesText = inviteeEmails.join('\n');
   const collabAmount = watch('collabAmount');
   const watchedTitle = watch('title');
   const watchedDuration = watch('durationDays');
@@ -75,7 +75,7 @@ function NewChallengePage() {
   const onSubmit = async (data: ChallengeFormData) => {
     // Frontend validation — same rules as backend (min AND max), shown as
     // toasts. Single source of truth: lib/challenge-limits.ts.
-    const invitees = parseInvitees(data.inviteesText);
+    const invitees = parseInvitees(inviteesText);
     const validationError = validateChallengeForm({
       title: data.title,
       durationDays: Number(data.durationDays),
@@ -358,7 +358,6 @@ function NewChallengePage() {
           {/* Convidar amigos */}
           <div style={{ marginBottom: 16 }}>
             <label
-              htmlFor="inviteesText"
               style={{
                 display: 'block',
                 fontWeight: 700,
@@ -367,29 +366,9 @@ function NewChallengePage() {
                 color: 'var(--ink)',
               }}
             >
-              Convidar amigos (e-mails, um por linha)
+              Convidar amigos (e-mails)
             </label>
-            <textarea
-              id="inviteesText"
-              placeholder={'amigo1@email.com\namigo2@email.com'}
-              {...register('inviteesText')}
-              style={{
-                width: '100%',
-                padding: '13px 15px',
-                borderRadius: 14,
-                border: '2px solid var(--line)',
-                fontFamily: 'inherit',
-                fontSize: '0.95rem',
-                resize: 'vertical',
-                minHeight: 74,
-                background: 'var(--card)',
-                color: 'var(--ink)',
-                outline: 'none',
-                transition: 'border 0.15s',
-              }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
-            />
+            <InviteesList emails={inviteeEmails} onChange={setInviteeEmails} />
           </div>
 
           {/* Live prize calculator (fires on every input — pure client math D-12) */}
@@ -615,7 +594,6 @@ function NewChallengePage() {
             {/* Convidar amigos */}
             <div>
               <label
-                htmlFor="inviteesText-web"
                 style={{
                   display: 'block',
                   fontWeight: 700,
@@ -624,29 +602,9 @@ function NewChallengePage() {
                   color: 'var(--ink)',
                 }}
               >
-                Quem entra? (um email por linha)
+                Quem entra?
               </label>
-              <textarea
-                id="inviteesText-web"
-                placeholder={'amigo1@email.com\namigo2@email.com'}
-                {...register('inviteesText')}
-                style={{
-                  width: '100%',
-                  padding: '13px 15px',
-                  borderRadius: 14,
-                  border: '2px solid var(--line)',
-                  fontFamily: 'inherit',
-                  fontSize: '0.95rem',
-                  resize: 'vertical',
-                  minHeight: 74,
-                  background: 'var(--card)',
-                  color: 'var(--ink)',
-                  outline: 'none',
-                  transition: 'border 0.15s',
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
-              />
+              <InviteesList emails={inviteeEmails} onChange={setInviteeEmails} idSuffix="web" />
             </div>
           </div>
 
