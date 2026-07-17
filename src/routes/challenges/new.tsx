@@ -55,7 +55,7 @@ function NewChallengePage() {
     defaultValues: {
       title: '',
       durationDays: 14,
-      collabAmount: 50,
+      collabAmount: 15,
     },
   });
 
