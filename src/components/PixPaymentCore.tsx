@@ -421,6 +421,10 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
     chargeMutation,
     pixKey,
     setPixKey,
+    // The canonical profile Pix key (shared ['profile'] cache) — lets the UI
+    // render the "already registered" list row instead of a raw input, same
+    // logic as the profile PixKeyCard (quick 260717-r07, feedback item 4b).
+    profilePixKey: profile?.pixKey ?? null,
     challengeSummary,
     isExpired,
     countdown,

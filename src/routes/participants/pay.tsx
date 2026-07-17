@@ -1,9 +1,8 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
-import type React from 'react';
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../../stores/auth.store';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { FormField } from '../../components/FormField';
+import { PixKeyInlineField } from '../../components/PixKeyInlineField';
 import { DisclaimerFooter } from '../../components/DisclaimerFooter';
 import { showToast } from '../../components/Toast';
 import { usePixPayment, CopiaECola } from '../../components/PixPaymentCore';
@@ -34,6 +33,7 @@ function PayPage() {
     chargeMutation,
     pixKey,
     setPixKey,
+    profilePixKey,
     challengeSummary,
     isPending,
     isError,
@@ -224,14 +224,12 @@ function PayPage() {
               )}
             </div>
 
-            <FormField
+            <PixKeyInlineField
               id="pixKey"
               label="Sua chave Pix (para reembolso, caso o desafio seja cancelado)"
-              placeholder="CPF, e-mail, telefone ou chave aleatória"
-              registration={{
-                value: pixKey,
-                onChange: (e: React.ChangeEvent<HTMLInputElement>) => setPixKey(e.target.value),
-              }}
+              savedKey={profilePixKey}
+              value={pixKey}
+              onChange={setPixKey}
             />
 
             <div style={{ marginTop: 8 }}>
