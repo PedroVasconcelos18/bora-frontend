@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth.store';
 import { apiClient } from '../api/client';
-import { NotBetBlock } from '../components/NotBetBlock';
 import { PixKeyCard } from '../components/PixKeyCard';
 import { ChallengeCard } from '../components/ChallengeCard';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -217,11 +216,6 @@ function ProfilePage() {
         <PixKeyCard />
       </div>
 
-      {/* "Não é aposta" block — PROF-02 (above logout button) */}
-      <div style={{ marginBottom: 16 }}>
-        <NotBetBlock />
-      </div>
-
       {/* Ghost "Sair da conta" button — AUTH-03 */}
       <button
         type="button"
@@ -402,8 +396,6 @@ function ProfilePage() {
 
           {/* T-i98 D-1/D-3: profile-level Pix key editor (web) */}
           <PixKeyCard />
-
-          <NotBetBlock />
 
           {/* Ghost "Sair da conta" button — SAME handler + hover as mobile (D-19) */}
           <button
