@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { showToast } from './Toast';
@@ -17,6 +17,11 @@ interface ProfilePixKey {
  * cache entry.
  *
  * D-4: free text, trim-only — no CPF/email/phone/random format validation.
+ *
+ * Quick 260717-r07 (feedback item 1): once a key is saved, the raw input is
+ * replaced by a "registered" list row + Editar button (input clears). This
+ * gives explicit "está cadastrada" feedback instead of leaving the typed
+ * value sitting in an editable box.
  */
 export function PixKeyCard() {
   const queryClient = useQueryClient();
@@ -30,17 +35,9 @@ export function PixKeyCard() {
   });
 
   const [pixKey, setPixKey] = useState('');
-  const [hydrated, setHydrated] = useState(false);
-
-  // Seed local input state from the fetched value exactly once (per mount),
-  // so a subsequent invalidate-refetch (after saving) does not stomp on
-  // whatever the user is currently typing.
-  useEffect(() => {
-    if (!hydrated && profile) {
-      setPixKey(profile.pixKey ?? '');
-      setHydrated(true);
-    }
-  }, [hydrated, profile]);
+  // Edit mode: when a key already exists we default to the collapsed
+  // "registered" view; the input only appears while adding or editing.
+  const [editing, setEditing] = useState(false);
 
   const saveMutation = useMutation({
     mutationFn: async (value: string) => {
@@ -50,6 +47,9 @@ export function PixKeyCard() {
     },
     onSuccess: () => {
       showToast('Chave Pix salva!');
+      // Collapse back to the registered view and clear the box (item 1).
+      setEditing(false);
+      setPixKey('');
       void queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
     onError: () => {
@@ -57,7 +57,20 @@ export function PixKeyCard() {
     },
   });
 
-  const hasKey = !!profile?.pixKey;
+  const savedKey = profile?.pixKey ?? '';
+  const hasKey = !!savedKey;
+  // Show the input while adding a first key OR while explicitly editing.
+  const showInput = !hasKey || editing;
+
+  const startEditing = () => {
+    setPixKey(savedKey);
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setPixKey('');
+  };
 
   return (
     <div
@@ -74,58 +87,154 @@ export function PixKeyCard() {
           fontWeight: 700,
           fontSize: '1.05rem',
           color: 'var(--ink)',
-          marginBottom: hasKey ? 12 : 8,
+          marginBottom: showInput ? (hasKey ? 12 : 8) : 12,
         }}
       >
         Sua chave Pix
       </h3>
 
-      {!hasKey && (
+      {!hasKey && !editing && (
         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 12, lineHeight: 1.4 }}>
           Cadastre sua chave Pix pra receber prêmios e reembolsos sem correria.
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          type="text"
-          value={pixKey}
-          onChange={(e) => setPixKey(e.target.value)}
-          placeholder="CPF, e-mail, telefone ou chave aleatória"
-          aria-label="Sua chave Pix"
+      {showInput ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            type="text"
+            value={pixKey}
+            onChange={(e) => setPixKey(e.target.value)}
+            placeholder="CPF, e-mail, telefone ou chave aleatória"
+            aria-label="Sua chave Pix"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              background: 'var(--paper)',
+              border: '1px solid var(--line)',
+              borderRadius: 10,
+              padding: '10px 12px',
+              fontSize: '0.88rem',
+              color: 'var(--ink)',
+              outline: 'none',
+            }}
+          />
+          {hasKey && (
+            <button
+              type="button"
+              onClick={cancelEditing}
+              disabled={saveMutation.isPending}
+              style={{
+                background: 'var(--card)',
+                color: 'var(--muted)',
+                border: '1px solid var(--line)',
+                borderRadius: 10,
+                padding: '10px 14px',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                cursor: saveMutation.isPending ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+                fontFamily: '"Baloo 2", system-ui, sans-serif',
+              }}
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => saveMutation.mutate(pixKey)}
+            disabled={saveMutation.isPending}
+            style={{
+              background: 'var(--green-bright)',
+              color: 'var(--green-ink)',
+              border: 'none',
+              borderRadius: 10,
+              padding: '10px 16px',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              cursor: saveMutation.isPending ? 'not-allowed' : 'pointer',
+              opacity: saveMutation.isPending ? 0.6 : 1,
+              whiteSpace: 'nowrap',
+              fontFamily: '"Baloo 2", system-ui, sans-serif',
+            }}
+          >
+            {saveMutation.isPending ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      ) : (
+        // Registered view — the key is shown as a list row, box cleared (item 1).
+        <div
           style={{
-            flex: 1,
-            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
             background: 'var(--paper)',
             border: '1px solid var(--line)',
-            borderRadius: 10,
-            padding: '10px 12px',
-            fontSize: '0.88rem',
-            color: 'var(--ink)',
-            outline: 'none',
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => saveMutation.mutate(pixKey)}
-          disabled={saveMutation.isPending}
-          style={{
-            background: 'var(--green-bright)',
-            color: 'var(--green-ink)',
-            border: 'none',
-            borderRadius: 10,
-            padding: '10px 16px',
-            fontWeight: 700,
-            fontSize: '0.85rem',
-            cursor: saveMutation.isPending ? 'not-allowed' : 'pointer',
-            opacity: saveMutation.isPending ? 0.6 : 1,
-            whiteSpace: 'nowrap',
-            fontFamily: '"Baloo 2", system-ui, sans-serif',
+            borderRadius: 12,
+            padding: '12px 14px',
           }}
         >
-          {saveMutation.isPending ? 'Salvando...' : 'Salvar'}
-        </button>
-      </div>
+          <span
+            aria-hidden="true"
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: '50%',
+              background: 'var(--mint)',
+              color: 'var(--green-ink)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: '0.8rem',
+              flexShrink: 0,
+            }}
+          >
+            ✓
+          </span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.03em',
+                color: 'var(--green-ink)',
+              }}
+            >
+              Chave cadastrada
+            </div>
+            <div
+              style={{
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: 'var(--ink)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {savedKey}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={startEditing}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: 'var(--green)',
+              fontWeight: 700,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              fontFamily: '"Baloo 2", system-ui, sans-serif',
+              flexShrink: 0,
+            }}
+          >
+            Editar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
