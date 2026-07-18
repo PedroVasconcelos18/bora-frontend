@@ -168,9 +168,23 @@ function formatLeaderNames(names: string[]): string {
 
 // Feedback QA 5d: turn the raw deadline into a "tempo pra pagar" line —
 // "Faltam X dias pra todo mundo pagar (até DD/MM)". Pure/presentational.
-function formatPayDeadline(deadlineIso: string): string {
-  const deadline = new Date(deadlineIso);
+// Item D: quando o criador escolheu uma data de início (startsAt), a contagem
+// mostra quantos dias faltam PRA COMEÇAR o desafio; sem startsAt, cai no
+// comportamento antigo de prazo de pagamento (deadline).
+function formatPayDeadline(startsAtIso: string | null | undefined, deadlineIso: string): string {
   const dayMs = 24 * 60 * 60 * 1000;
+
+  if (startsAtIso) {
+    const startsAt = new Date(startsAtIso);
+    const msLeft = startsAt.getTime() - Date.now();
+    const dateLabel = startsAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    if (msLeft <= 0) return `O desafio começa hoje (${dateLabel}).`;
+    const daysLeft = Math.ceil(msLeft / dayMs);
+    if (daysLeft === 1) return `Falta 1 dia pro desafio começar (${dateLabel}).`;
+    return `Faltam ${daysLeft} dias pro desafio começar (${dateLabel}).`;
+  }
+
+  const deadline = new Date(deadlineIso);
   const msLeft = deadline.getTime() - Date.now();
   const dateLabel = deadline.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   if (msLeft <= 0) return `O prazo pra todo mundo pagar terminou (${dateLabel}).`;
@@ -903,7 +917,7 @@ function ChallengeDetailPage() {
                 }}
               >
                 <div style={{ color: 'var(--green-ink)', fontWeight: 700, fontSize: '0.82rem' }}>
-                  ⏳ {formatPayDeadline(waitingRoom.deadline)}
+                  ⏳ {formatPayDeadline(waitingRoom.startsAt, waitingRoom.deadline)}
                 </div>
                 <div style={{ color: 'var(--green-ink)', fontWeight: 600, fontSize: '0.78rem', marginTop: 3 }}>
                   Os dias do desafio só começam a contar quando todo mundo pagar.
@@ -1226,7 +1240,7 @@ function ChallengeDetailPage() {
                       }}
                     >
                       <div style={{ color: 'var(--green-ink)', fontWeight: 700, fontSize: '0.85rem' }}>
-                        ⏳ {formatPayDeadline(waitingRoom.deadline)}
+                        ⏳ {formatPayDeadline(waitingRoom.startsAt, waitingRoom.deadline)}
                       </div>
                       <div
                         style={{ color: 'var(--green-ink)', fontWeight: 600, fontSize: '0.8rem', marginTop: 3 }}
