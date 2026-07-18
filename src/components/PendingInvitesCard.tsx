@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { showToast } from './Toast';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export interface PendingInvite {
   id: string;
@@ -26,6 +27,9 @@ export function PendingInvitesCard({ challengeId, invites, canManage }: PendingI
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftEmail, setDraftEmail] = useState('');
+  // Item E: no mobile (<768) as ações Reenviar/Editar/Excluir quebram pra uma
+  // segunda linha em vez de espremer/estourar a linha do "Aguardando aceite".
+  const isMobile = !useMediaQuery('(min-width: 768px)');
 
   const invalidate = () => {
     // The count/prize and this list all live in the waiting-room query.
@@ -178,7 +182,14 @@ export function PendingInvitesCard({ challengeId, invites, canManage }: PendingI
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  ...(isMobile ? { flexWrap: 'wrap' as const } : {}),
+                }}
+              >
                 <div
                   aria-hidden="true"
                   style={{
@@ -222,7 +233,16 @@ export function PendingInvitesCard({ challengeId, invites, canManage }: PendingI
                   Aguardando aceite
                 </span>
                 {canManage && (
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 8,
+                      flexShrink: 0,
+                      ...(isMobile
+                        ? { flexBasis: '100%', justifyContent: 'flex-end', marginTop: 6 }
+                        : {}),
+                    }}
+                  >
                     <button
                       type="button"
                       disabled={busy}
