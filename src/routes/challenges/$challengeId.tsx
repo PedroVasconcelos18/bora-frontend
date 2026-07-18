@@ -16,11 +16,8 @@ import { EvidenceUploadCard, type TodayEvidence } from '../../components/Evidenc
 import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
 import { RankingList, type RankingData } from '../../components/RankingList';
 import { StreakGrid, type StreakCellState } from '../../components/StreakGrid';
-import { EvidenceStatusBadge, type EvidenceStatus } from '../../components/EvidenceStatusBadge';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
-
-const R2_PUBLIC_BASE_URL: string = import.meta.env.VITE_R2_PUBLIC_BASE_URL ?? '';
 
 // D-13 (Plan 07-05, Task 2): the invite accept-and-pay web nav contract
 // (Plan 07-01's goToPayWeb) lands here with ?token=...&autopay=1. Both
@@ -36,10 +33,10 @@ interface ChallengeDetailSearch {
   // expandido web ("votar agora →"/"ver resultado →") — mesmo padrão de
   // token/autopay, aditivo e opcional. Sem efeito no mobile (SegmentedTabs
   // tem estado próprio; fora do escopo desta fase).
-  panel?: 'votar' | 'feed' | 'ranking';
+  panel?: 'votar' | 'ranking';
 }
 
-const VALID_PANEL_VALUES = ['votar', 'feed', 'ranking'] as const;
+const VALID_PANEL_VALUES = ['votar', 'ranking'] as const;
 
 export const Route = createFileRoute('/challenges/$challengeId')({
   component: ChallengeDetailPage,
@@ -123,16 +120,6 @@ interface InviteLink {
 // (formatBRL). No new query/endpoint: these only reshape data already
 // fetched by the route.
 
-interface FeedPreviewItem {
-  key: string;
-  name: string;
-  timeLabel: string;
-  objectKey: string;
-  badgeStatus: EvidenceStatus;
-}
-
-const VOTE_WINDOW_MS = 24 * 60 * 60 * 1000;
-
 function initialsOf(name: string): string {
   return name
     .split(' ')
@@ -193,46 +180,6 @@ function formatPayDeadline(startsAtIso: string | null | undefined, deadlineIso: 
   return `Faltam ${daysLeft} dias pra todo mundo pagar (até ${dateLabel}).`;
 }
 
-// v1.0's Evidence model has no caption/legenda field (objectKey,
-// evidenceDate, status, windowClosesAt, postedAt, resolvedAt only) — the
-// feed preview card intentionally omits a caption line rather than
-// fabricating copy the backend never returns (reuse-only constraint).
-function toBadgeStatus(status: 'PENDING' | 'ACCEPTED' | 'REJECTED'): EvidenceStatus {
-  return status === 'PENDING' ? 'SENT' : status;
-}
-
-// CHALW-01/03 (Plan 06-02 + 06-03): builds the combined "today" feed —
-// own evidence (if posted) + others' votable evidences, in NO particular
-// status filter (D-06). Shared by the default panel's 3-item preview
-// column and DesktopFeedPanel's full gallery grid, so the combine logic
-// (and its "no status filter" guarantee) lives in exactly one place.
-function buildFeedItems(
-  todayEvidence: (TodayEvidence & { postedAt?: string }) | null | undefined,
-  votableEvidences: VoteCardEvidence[] | undefined,
-  userName: string | undefined,
-): FeedPreviewItem[] {
-  const items: FeedPreviewItem[] = [];
-  if (todayEvidence) {
-    items.push({
-      key: 'own',
-      name: userName ?? 'Você',
-      timeLabel: todayEvidence.postedAt ? formatClockTime(new Date(todayEvidence.postedAt)) : 'Hoje',
-      objectKey: todayEvidence.objectKey,
-      badgeStatus: toBadgeStatus(todayEvidence.status),
-    });
-  }
-  for (const evidence of votableEvidences ?? []) {
-    items.push({
-      key: evidence.id,
-      name: evidence.authorName,
-      timeLabel: formatClockTime(new Date(new Date(evidence.windowClosesAt).getTime() - VOTE_WINDOW_MS)),
-      objectKey: evidence.objectKey,
-      badgeStatus: toBadgeStatus(evidence.status),
-    });
-  }
-  return items;
-}
-
 const infoCardStyle = {
   background: 'var(--card)',
   border: '1px solid var(--line)',
@@ -263,23 +210,6 @@ const linkButtonStyle = {
   fontSize: '0.85rem',
   cursor: 'pointer',
   whiteSpace: 'nowrap',
-} as const;
-
-const avatarSmallStyle = {
-  width: 28,
-  height: 28,
-  borderRadius: '50%',
-  background: 'var(--green)',
-  display: 'grid',
-  placeItems: 'center',
-  // WEB-05: --card (pure white surface token) reused as the white text
-  // color here — no dedicated "white" token exists in tokens.css, and this
-  // avoids introducing a new bare hex value.
-  color: 'var(--card)',
-  fontFamily: '"Baloo 2", system-ui, sans-serif',
-  fontWeight: 700,
-  fontSize: '0.7rem',
-  flexShrink: 0,
 } as const;
 
 /**
@@ -434,7 +364,7 @@ function ChallengeDetailPage() {
   // route, not a modal. Only the 'default' layout is implemented by this
   // plan (Plan 06-03 wires the votar/feed/ranking branches) — any other
   // panel value currently falls through to the default layout below.
-  const [panel, setPanel] = useState<'default' | 'votar' | 'feed' | 'ranking'>(
+  const [panel, setPanel] = useState<'default' | 'votar' | 'ranking'>(
     panelFromSearch ?? 'default',
   );
 
@@ -1732,14 +1662,6 @@ function ChallengeDetailPage() {
   // already-fetched queries only, no new query/endpoint.
   const myStreak = ranking?.participants.find((p) => p.id === myParticipant?.id)?.streak ?? [];
 
-  // Feed preview (D-06): own evidence (if posted) + others' votable
-  // evidences (already excludes own, per the votable-evidences API
-  // contract), full array unfiltered by status — max 3 items shown here,
-  // "Ver feed completo" (setPanel('feed')) opens the full DesktopFeedPanel
-  // gallery over this SAME unsliced array (CHALW-03, Plan 06-03).
-  const feedItems = buildFeedItems(todayEvidence, votableEvidences, user?.name);
-  const feedPreviewItems = feedItems.slice(0, 3);
-
   // Votação aberta teaser (omitted entirely when N === 0, per D-04).
   const votableCount = votableEvidences?.length ?? 0;
   const earliestWindowCloses =
@@ -1915,7 +1837,7 @@ function ChallengeDetailPage() {
           </div>
         </div>
 
-        {/* Column 2 — hoje + feed */}
+        {/* Column 2 — hoje */}
         <div style={{ flex: '2 1 420px', minWidth: 320, display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div>
             <div style={{ ...cardHeadingStyle, marginBottom: 10 }}>Hoje</div>
@@ -1930,73 +1852,6 @@ function ChallengeDetailPage() {
                 void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
               }}
             />
-          </div>
-
-          <div style={infoCardStyle}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 12,
-              }}
-            >
-              <div style={{ ...cardHeadingStyle, marginBottom: 0 }}>Feed da turma — hoje</div>
-              <button type="button" onClick={() => setPanel('feed')} style={linkButtonStyle}>
-                Ver feed completo →
-              </button>
-            </div>
-
-            {feedPreviewItems.length === 0 ? (
-              <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.85rem', margin: 0 }}>
-                Ninguém postou ainda hoje.
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {feedPreviewItems.map((item) => (
-                  <div
-                    key={item.key}
-                    style={{
-                      background: 'var(--card)',
-                      border: '1px solid var(--line)',
-                      borderRadius: 18,
-                      padding: 14,
-                      display: 'flex',
-                      gap: 14,
-                    }}
-                  >
-                    <img
-                      src={`${R2_PUBLIC_BASE_URL}/${encodeURIComponent(item.objectKey)}`}
-                      alt={`Evidência de ${item.name}`}
-                      style={{ width: 150, height: 112, objectFit: 'cover', borderRadius: 12, flexShrink: 0 }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={avatarSmallStyle}>{initialsOf(item.name)}</div>
-                        <div style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              fontSize: '0.88rem',
-                              color: 'var(--ink)',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {item.name}
-                          </div>
-                          <div style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--muted)' }}>
-                            {item.timeLabel}
-                          </div>
-                        </div>
-                      </div>
-                      <EvidenceStatusBadge status={item.badgeStatus} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
@@ -2065,18 +1920,6 @@ function ChallengeDetailPage() {
           }}
           ranking={ranking}
           myStreak={myStreak}
-        />
-      )}
-
-      {panel === 'feed' && (
-        <DesktopFeedPanel
-          challengeTitle={challenge.title}
-          dayOfChallenge={dayOfChallenge}
-          durationDays={challenge.durationDays}
-          todayEvidence={todayEvidence}
-          votableEvidences={votableEvidences}
-          userName={user?.name}
-          onBackToDefault={() => setPanel('default')}
         />
       )}
 
@@ -2428,126 +2271,6 @@ function DesktopVotarPanel({
           <StreakGrid streak={myStreak} />
         </div>
       </div>
-    </div>
-  );
-}
-
-/**
- * DesktopFeedPanel — the "feed" panel expansion (CHALW-03, D-05/D-06). Full
- * today gallery: own evidence + others', ANY status, no day grouping — the
- * full-day gallery that distinguishes this panel from DesktopVotarPanel's
- * actionable slice. Reuses `buildFeedItems` (module-level, shared with the
- * default panel's 3-item preview) so the "no status filter" combine logic
- * lives in exactly one place.
- */
-interface DesktopFeedPanelProps {
-  challengeTitle: string;
-  dayOfChallenge: number;
-  durationDays: number;
-  todayEvidence: (TodayEvidence & { postedAt?: string }) | null | undefined;
-  votableEvidences: VoteCardEvidence[] | undefined;
-  userName: string | undefined;
-  onBackToDefault: () => void;
-}
-
-function DesktopFeedPanel({
-  challengeTitle,
-  dayOfChallenge,
-  durationDays,
-  todayEvidence,
-  votableEvidences,
-  userName,
-  onBackToDefault,
-}: DesktopFeedPanelProps) {
-  const items = buildFeedItems(todayEvidence, votableEvidences, userName);
-
-  return (
-    <div>
-      <h1
-        style={{
-          fontFamily: '"Baloo 2", system-ui, sans-serif',
-          fontWeight: 800,
-          fontSize: '1.9rem',
-          lineHeight: 1.1,
-          color: 'var(--ink)',
-          margin: '0 0 6px',
-        }}
-      >
-        Feed de evidências
-      </h1>
-      <p style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--muted)', margin: '0 0 20px' }}>
-        {challengeTitle} · Dia {dayOfChallenge} de {durationDays} · a turma valida por voto em até 24h
-      </p>
-
-      {items.length === 0 ? (
-        <div
-          style={{
-            border: '2px dashed var(--mint-deep)',
-            borderRadius: 18,
-            padding: '36px 22px',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: '1.8rem', marginBottom: 8 }}>📷</div>
-          <div
-            style={{
-              fontFamily: '"Baloo 2", system-ui, sans-serif',
-              fontWeight: 700,
-              fontSize: '1rem',
-              color: 'var(--ink)',
-              marginBottom: 6,
-            }}
-          >
-            Ninguém postou ainda hoje
-          </div>
-          <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 16px' }}>
-            Seja quem mostra serviço primeiro.
-          </p>
-          <PrimaryButton onClick={onBackToDefault}>Postar minha evidência</PrimaryButton>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-          {items.map((item) => (
-            <div
-              key={item.key}
-              style={{
-                background: 'var(--card)',
-                border: '1px solid var(--line)',
-                borderRadius: 18,
-                padding: 14,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-              }}
-            >
-              <img
-                src={`${R2_PUBLIC_BASE_URL}/${encodeURIComponent(item.objectKey)}`}
-                alt={`Evidência de ${item.name}`}
-                style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 14, display: 'block' }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={avatarSmallStyle}>{initialsOf(item.name)}</div>
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: '0.92rem',
-                      color: 'var(--ink)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {item.name}
-                  </div>
-                  <div style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--muted)' }}>{item.timeLabel}</div>
-                </div>
-              </div>
-              <EvidenceStatusBadge status={item.badgeStatus} />
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
