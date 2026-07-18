@@ -22,6 +22,8 @@ interface ChallengeCardProps {
   platformFee: string;
   status: string;
   participants?: Participant[];
+  /** Convites ainda PENDING — entram na base do prêmio/contagem (item F). */
+  pendingInviteCount?: number;
   onClick?: () => void;
 }
 
@@ -44,17 +46,21 @@ export function ChallengeCard({
   platformFee,
   status,
   participants = [],
+  pendingInviteCount = 0,
   onClick,
 }: ChallengeCardProps) {
   const collab = parseFloat(collabAmount);
   const fee = parseFloat(platformFee);
-  const participantCount = participants.length;
-  const estimatedPrize = Math.max(0, participantCount * collab - fee);
+  // Item F: prize/contagem = turma inteira (participantes aceitos + convites
+  // pendentes), batendo com sala de espera, header e ranking. A pilha de
+  // avatares abaixo continua só com participantes aceitos.
+  const rosterCount = participants.length + pendingInviteCount;
+  const estimatedPrize = Math.max(0, rosterCount * collab - fee);
 
   const metaText =
     status === 'WAITING'
-      ? `Aguardando · ${durationDays} dias · ${participantCount} pessoa${participantCount !== 1 ? 's' : ''}`
-      : `${durationDays} dias · ${participantCount} pessoa${participantCount !== 1 ? 's' : ''}`;
+      ? `Aguardando · ${durationDays} dias · ${rosterCount} pessoa${rosterCount !== 1 ? 's' : ''}`
+      : `${durationDays} dias · ${rosterCount} pessoa${rosterCount !== 1 ? 's' : ''}`;
 
   return (
     <button

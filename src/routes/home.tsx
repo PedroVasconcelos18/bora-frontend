@@ -28,6 +28,7 @@ interface Challenge {
   platformFee: string;
   status: string;
   participants: Participant[];
+  invites?: { status: string }[];
   createdAt: string;
 }
 
@@ -107,6 +108,9 @@ function HomePage() {
                 platformFee={challenge.platformFee}
                 status={challenge.status}
                 participants={challenge.participants ?? []}
+                pendingInviteCount={
+                  (challenge.invites ?? []).filter((i) => i.status === 'PENDING').length
+                }
                 onClick={() =>
                   void navigate({
                     to: '/challenges/$challengeId',
@@ -258,6 +262,9 @@ function HomePage() {
                 platformFee={challenge.platformFee}
                 status={challenge.status}
                 participants={challenge.participants ?? []}
+                pendingInviteCount={
+                  (challenge.invites ?? []).filter((i) => i.status === 'PENDING').length
+                }
                 onClick={() =>
                   void navigate({
                     to: '/challenges/$challengeId',
