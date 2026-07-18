@@ -98,6 +98,11 @@ interface WaitingRoomStatus {
   // Convidados que ainda não aceitaram (feedback QA 5a) — só existem como
   // Invite (token). Opcional pra não quebrar caches antigos sem o campo.
   pendingInvites?: { id: string; email: string }[];
+  // "Começar agora" (feedback): true quando só sobram pagantes (sem convites
+  // pendentes, >=2 participantes, todos PAID). Opcional pra caches antigos.
+  canStartNow?: boolean;
+  // Data de início planejada — null quando o criador não escolheu.
+  startsAt?: string | null;
 }
 
 // Plan 07-05 (D-23 hand-off): shape of the copyableLinks seed written by
@@ -491,6 +496,38 @@ function ChallengeDetailPage() {
     }
   };
 
+  // "Começar agora" (feedback): antecipa o início quando só sobram pagantes
+  // (todos pagaram, sem convites pendentes) e a data planejada ainda não
+  // chegou. Guard-rails no backend (PATCH /challenges/:id/start).
+  const startNowMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.patch(`/challenges/${challengeId}/start`, {});
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(errBody.message ?? 'Erro ao iniciar o desafio. Tente novamente.');
+      }
+      return res.json() as Promise<{ status: string }>;
+    },
+    onSuccess: () => {
+      showToast('Desafio iniciado! 🚀');
+      void queryClient.invalidateQueries({ queryKey: ['challenge', challengeId] });
+      void queryClient.invalidateQueries({ queryKey: ['waiting-room', challengeId] });
+    },
+    onError: (err: Error) => {
+      showToast(err.message ?? 'Erro ao iniciar o desafio.');
+    },
+  });
+
+  const handleStartNow = () => {
+    if (
+      window.confirm(
+        'Todo mundo já pagou. Começar o desafio agora? Os dias passam a contar a partir de hoje.',
+      )
+    ) {
+      startNowMutation.mutate();
+    }
+  };
+
   // D-12 (Plan 07-05, Task 1): the web sala de espera opens the shared Pix
   // core in-place (PixOverlay) instead of navigating to /participants/pay —
   // this state is hoisted above the early returns below so it stays a
@@ -862,6 +899,14 @@ function ChallengeDetailPage() {
             </div>
           )}
 
+          {isCreator && waitingRoom?.canStartNow && (
+            <div style={{ marginTop: 12 }}>
+              <PrimaryButton onClick={handleStartNow} loading={startNowMutation.isPending}>
+                Começar desafio agora
+              </PrimaryButton>
+            </div>
+          )}
+
           {isCreator && (
             <div style={{ marginTop: 12 }}>
               <button
@@ -1206,6 +1251,14 @@ function ChallengeDetailPage() {
                     }}
                   >
                     Pagar minha entrada
+                  </PrimaryButton>
+                </div>
+              )}
+
+              {isCreator && waitingRoom?.canStartNow && (
+                <div style={{ marginBottom: 12 }}>
+                  <PrimaryButton onClick={handleStartNow} loading={startNowMutation.isPending}>
+                    Começar desafio agora
                   </PrimaryButton>
                 </div>
               )}

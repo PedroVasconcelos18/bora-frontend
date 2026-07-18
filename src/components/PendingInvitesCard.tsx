@@ -68,6 +68,21 @@ export function PendingInvitesCard({ challengeId, invites, canManage }: PendingI
     onError: (e: Error) => showToast(e.message ?? 'Erro ao remover o convite.'),
   });
 
+  // Reenviar o convite pro MESMO e-mail (feedback: reeditar/salvar com o e-mail
+  // igual não reenviava de forma óbvia). Botão explícito, sem mexer no e-mail.
+  const resendMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.post(`/invites/${id}/resend`, {});
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(err.message ?? 'Erro ao reenviar o convite.');
+      }
+      return res.json();
+    },
+    onSuccess: () => showToast('Convite reenviado ✉️'),
+    onError: (e: Error) => showToast(e.message ?? 'Erro ao reenviar o convite.'),
+  });
+
   if (invites.length === 0) return null;
 
   const startEdit = (invite: PendingInvite) => {
@@ -75,7 +90,7 @@ export function PendingInvitesCard({ challengeId, invites, canManage }: PendingI
     setDraftEmail(invite.email);
   };
 
-  const busy = editMutation.isPending || deleteMutation.isPending;
+  const busy = editMutation.isPending || deleteMutation.isPending || resendMutation.isPending;
 
   return (
     <div style={{ marginTop: 14 }}>
@@ -208,6 +223,23 @@ export function PendingInvitesCard({ challengeId, invites, canManage }: PendingI
                 </span>
                 {canManage && (
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => resendMutation.mutate(invite.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: 'var(--green)',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        cursor: busy ? 'not-allowed' : 'pointer',
+                        fontFamily: '"Baloo 2", system-ui, sans-serif',
+                      }}
+                    >
+                      Reenviar
+                    </button>
                     <button
                       type="button"
                       disabled={busy}

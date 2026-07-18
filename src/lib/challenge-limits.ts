@@ -32,7 +32,17 @@ export const LIMIT_MESSAGES = {
   collabMax: 'A colaboração máxima é R$ 200.',
   inviteesMin: 'Convide pelo menos 2 amigos (mínimo de 3 pessoas).',
   inviteesMax: 'O desafio aceita no máximo 10 pessoas — convide até 9 amigos.',
+  startDatePast: 'A data de início não pode ser no passado.',
 } as const;
+
+/** Data de hoje em YYYY-MM-DD (fuso local) — piso do seletor de início. */
+export function todayISODate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 /**
  * Clamp a number into [min, max]. Pure passthrough — does NOT special-case
@@ -62,6 +72,8 @@ interface ChallengeFormInput {
   durationDays: number;
   collabAmount: number;
   invitees: string[];
+  /** Data de início planejada (YYYY-MM-DD). Opcional — só validada se presente. */
+  startDate?: string;
 }
 
 /**
@@ -93,6 +105,11 @@ export function validateChallengeForm(input: ChallengeFormInput): string | null 
   }
   if (invitees.length > CHALLENGE_LIMITS.invitees.max) {
     return LIMIT_MESSAGES.inviteesMax;
+  }
+  // Data de início: opcional, mas se preenchida não pode ser no passado.
+  // Comparação por string YYYY-MM-DD (lexicográfica == cronológica) contra hoje.
+  if (input.startDate && input.startDate < todayISODate()) {
+    return LIMIT_MESSAGES.startDatePast;
   }
 
   return null;

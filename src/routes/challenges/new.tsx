@@ -13,7 +13,7 @@ import { showToast } from '../../components/Toast';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
 import { parseInvitees } from '../../lib/prize';
-import { CHALLENGE_LIMITS, clamp, validateChallengeForm } from '../../lib/challenge-limits';
+import { CHALLENGE_LIMITS, clamp, validateChallengeForm, todayISODate } from '../../lib/challenge-limits';
 import { CollabStepper } from '../../components/CollabStepper';
 import { InviteesList } from '../../components/InviteesList';
 
@@ -25,6 +25,7 @@ interface ChallengeFormData {
   title: string;
   durationDays: number;
   collabAmount: number;
+  startDate: string;
 }
 
 interface InviteLink {
@@ -56,6 +57,9 @@ function NewChallengePage() {
       title: '',
       durationDays: 14,
       collabAmount: 15,
+      // Default = hoje: mantém o comportamento antigo (começa quando a turma
+      // paga). O criador pode escolher uma data futura pra travar o início.
+      startDate: todayISODate(),
     },
   });
 
@@ -112,6 +116,7 @@ function NewChallengePage() {
       durationDays: Number(data.durationDays),
       collabAmount: Number(data.collabAmount),
       invitees,
+      startDate: data.startDate,
     });
     if (validationError) {
       showToast(validationError);
@@ -125,6 +130,7 @@ function NewChallengePage() {
         emoji: selectedEmoji,
         durationDays: Number(data.durationDays),
         collabAmount: Number(data.collabAmount),
+        startDate: data.startDate || undefined,
         invitees,
       });
 
@@ -283,6 +289,45 @@ function NewChallengePage() {
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
               onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
             />
+          </div>
+
+          {/* Data de início */}
+          <div style={{ marginBottom: 16 }}>
+            <label
+              htmlFor="startDate"
+              style={{
+                display: 'block',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                marginBottom: 7,
+                color: 'var(--ink)',
+              }}
+            >
+              Data de início
+            </label>
+            <input
+              id="startDate"
+              type="date"
+              min={todayISODate()}
+              {...register('startDate')}
+              style={{
+                width: '100%',
+                padding: '14px 16px',
+                borderRadius: 14,
+                border: '2px solid var(--line)',
+                background: 'var(--card)',
+                fontSize: '1rem',
+                fontFamily: 'inherit',
+                transition: 'border 0.15s',
+                color: 'var(--ink)',
+                outline: 'none',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+            />
+            <p style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 6 }}>
+              O desafio só começa nessa data — ou antes, se todo mundo já tiver pago.
+            </p>
           </div>
 
           {/* Duração */}
@@ -519,8 +564,47 @@ function NewChallengePage() {
               />
             </div>
 
-            {/* Duração — free input (mobile parity), D-09: no vote-window
-                selector, no start/end date pickers. */}
+            {/* Data de início — o desafio trava até essa data (feedback);
+                default hoje mantém "começa quando todo mundo pagar". */}
+            <div style={{ marginBottom: 16 }}>
+              <label
+                htmlFor="startDate-web"
+                style={{
+                  display: 'block',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  marginBottom: 7,
+                  color: 'var(--ink)',
+                }}
+              >
+                Data de início
+              </label>
+              <input
+                id="startDate-web"
+                type="date"
+                min={todayISODate()}
+                {...register('startDate')}
+                style={{
+                  width: '100%',
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  border: '2px solid var(--line)',
+                  background: 'var(--card)',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  transition: 'border 0.15s',
+                  color: 'var(--ink)',
+                  outline: 'none',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--green-bright)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+              />
+              <p style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 6 }}>
+                O desafio só começa nessa data — ou antes, se todo mundo já tiver pago.
+              </p>
+            </div>
+
+            {/* Duração — free input (mobile parity). */}
             <div style={{ marginBottom: 16 }}>
               <label
                 htmlFor="durationDays-web"
