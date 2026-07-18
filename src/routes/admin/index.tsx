@@ -24,6 +24,7 @@ interface RefundRow {
   participantName: string;
   amount: string;
   pixKey: string | null;
+  reason: string | null;
 }
 
 interface PayoutRow {

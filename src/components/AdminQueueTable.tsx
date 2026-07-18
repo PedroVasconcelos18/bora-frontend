@@ -25,6 +25,8 @@ export interface AdminQueueRow {
   challengeTitle: string;
   amount: string;
   pixKey: string | null;
+  /** Item C: motivo do reembolso (só a fila de refund traz; payouts não). */
+  reason?: string | null;
 }
 
 export interface AdminQueueTableProps<T extends AdminQueueRow> {
@@ -259,7 +261,14 @@ export function AdminQueueTable<T extends AdminQueueRow>({
                   style={{ borderBottom: i === rows.length - 1 ? 'none' : '1px solid var(--line)' }}
                 >
                   <td style={tdTitleStyle}>{row.challengeTitle}</td>
-                  <td style={tdStyle}>{personLabel(row)}</td>
+                  <td style={tdStyle}>
+                    {personLabel(row)}
+                    {row.reason && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: 2 }}>
+                        {row.reason}
+                      </div>
+                    )}
+                  </td>
                   <td
                     style={{
                       ...tdStyle,
@@ -334,6 +343,11 @@ export function AdminQueueTable<T extends AdminQueueRow>({
             <div style={{ fontSize: '0.9rem', color: 'var(--ink)', marginBottom: 2 }}>
               <strong>{personLabel(row)}</strong>
             </div>
+            {row.reason && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: 2 }}>
+                {row.reason}
+              </div>
+            )}
             <div style={{ fontSize: '0.9rem', color: 'var(--ink)', marginBottom: 2 }}>
               {formatAmount(row.amount)}
             </div>
