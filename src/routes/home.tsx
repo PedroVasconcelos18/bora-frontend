@@ -5,6 +5,7 @@ import { apiClient } from '../api/client';
 import { ChallengeCard } from '../components/ChallengeCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { PendenciasCard } from '../components/PendenciasCard';
+import { NotBetBlock } from '../components/NotBetBlock';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../lib/breakpoints';
 
@@ -153,6 +154,11 @@ function HomePage() {
             </PrimaryButton>
           </div>
         ) : null}
+
+        {/* "Não é aposta" — posicionamento legal/produto na página Desafios */}
+        <div style={{ marginTop: 20 }}>
+          <NotBetBlock />
+        </div>
       </main>
     );
   }
@@ -336,7 +342,10 @@ function HomePage() {
             <div style={shimmerBlockStyle(250)} />
           </>
         ) : (
-          <PendenciasCard challenges={challenges ?? []} />
+          <>
+            <PendenciasCard challenges={challenges ?? []} />
+            <NotBetBlock />
+          </>
         )}
       </div>
     </div>

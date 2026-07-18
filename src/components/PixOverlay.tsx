@@ -1,7 +1,6 @@
-import type React from 'react';
 import { useEffect } from 'react';
 import { PrimaryButton } from './PrimaryButton';
-import { FormField } from './FormField';
+import { PixKeyInlineField } from './PixKeyInlineField';
 import { usePixPayment, CopiaECola } from './PixPaymentCore';
 
 interface PixOverlayProps {
@@ -30,6 +29,7 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
     chargeMutation,
     pixKey,
     setPixKey,
+    profilePixKey,
     challengeSummary,
     isExpired,
     countdown,
@@ -267,14 +267,12 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
             )}
 
             <div style={{ marginTop: 18 }}>
-              <FormField
+              <PixKeyInlineField
                 id="pix-overlay-key"
                 label="Sua chave Pix (para reembolso, caso o desafio seja cancelado)"
-                placeholder="CPF, e-mail, telefone ou chave aleatória"
-                registration={{
-                  value: pixKey,
-                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => setPixKey(e.target.value),
-                }}
+                savedKey={profilePixKey}
+                value={pixKey}
+                onChange={setPixKey}
               />
             </div>
 

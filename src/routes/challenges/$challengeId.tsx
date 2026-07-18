@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { StatusPill } from '../../components/StatusPill';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { WaitingRoomList } from '../../components/WaitingRoomList';
+import { PendingInvitesCard } from '../../components/PendingInvitesCard';
 import { CopyableInviteLink } from '../../components/CopyableInviteLink';
 import { PixOverlay } from '../../components/PixOverlay';
 import { showToast } from '../../components/Toast';
@@ -94,6 +95,9 @@ interface WaitingRoomStatus {
   totalCount: number;
   prize: string;
   participants: { name: string; paid: boolean }[];
+  // Convidados que ainda não aceitaram (feedback QA 5a) — só existem como
+  // Invite (token). Opcional pra não quebrar caches antigos sem o campo.
+  pendingInvites?: { id: string; email: string }[];
 }
 
 // Plan 07-05 (D-23 hand-off): shape of the copyableLinks seed written by
@@ -154,6 +158,19 @@ function formatLeaderNames(names: string[]): string {
   if (names.length === 1) return names[0];
   if (names.length === 2) return `${names[0]} e ${names[1]}`;
   return `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+}
+
+// Feedback QA 5d: turn the raw deadline into a "tempo pra pagar" line —
+// "Faltam X dias pra todo mundo pagar (até DD/MM)". Pure/presentational.
+function formatPayDeadline(deadlineIso: string): string {
+  const deadline = new Date(deadlineIso);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const msLeft = deadline.getTime() - Date.now();
+  const dateLabel = deadline.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  if (msLeft <= 0) return `O prazo pra todo mundo pagar terminou (${dateLabel}).`;
+  const daysLeft = Math.ceil(msLeft / dayMs);
+  if (daysLeft === 1) return `Falta 1 dia pra todo mundo pagar (até ${dateLabel}).`;
+  return `Faltam ${daysLeft} dias pra todo mundo pagar (até ${dateLabel}).`;
 }
 
 // v1.0's Evidence model has no caption/legenda field (objectKey,
@@ -563,13 +580,6 @@ function ChallengeDetailPage() {
     ? challenge.participants.find((p) => p.user.id === user.id)
     : undefined;
   const isCreator = !!user && user.id === challenge.creatorId;
-  const formattedDeadline = waitingRoom
-    ? new Date(waitingRoom.deadline).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
-    : null;
 
   // D-12: the pre-existing mobile <section> return, moved unchanged inside
   // this gate — its markup/text/WAITING/ACTIVE(SegmentedTabs)/FINISHED
@@ -784,22 +794,34 @@ function ChallengeDetailPage() {
               >
                 {waitingRoom.paidCount} de {waitingRoom.totalCount} pagaram
               </div>
-              {formattedDeadline && (
-                <div
-                  style={{
-                    color: 'var(--muted)',
-                    fontWeight: 600,
-                    fontSize: '0.8rem',
-                    marginBottom: 13,
-                  }}
-                >
-                  Começa quando 3+ pagarem. Prazo: {formattedDeadline}
+              {/* Feedback QA 5d: prazo pra pagar + deixar explícito que os
+                  dias só começam quando TODOS pagarem. */}
+              <div
+                style={{
+                  background: 'var(--mint)',
+                  borderRadius: 12,
+                  padding: '10px 12px',
+                  marginBottom: 13,
+                }}
+              >
+                <div style={{ color: 'var(--green-ink)', fontWeight: 700, fontSize: '0.82rem' }}>
+                  ⏳ {formatPayDeadline(waitingRoom.deadline)}
                 </div>
-              )}
+                <div style={{ color: 'var(--green-ink)', fontWeight: 600, fontSize: '0.78rem', marginTop: 3 }}>
+                  Os dias do desafio só começam a contar quando todo mundo pagar.
+                </div>
+              </div>
 
               {waitingRoom.participants.length > 0 && (
                 <WaitingRoomList participants={waitingRoom.participants} />
               )}
+
+              {/* Convidados que ainda não aceitaram (feedback QA 5a) */}
+              <PendingInvitesCard
+                challengeId={challenge.id}
+                invites={waitingRoom.pendingInvites ?? []}
+                canManage={isCreator}
+              />
             </>
           ) : (
             <div
@@ -1071,9 +1093,33 @@ function ChallengeDetailPage() {
                     {waitingRoom.participants.length > 0 && (
                       <WaitingRoomList participants={waitingRoom.participants} />
                     )}
-                    {/* D-21: the "still not accepted, remind them" pending-invite
-                        line is intentionally omitted here — it requires a
-                        "list my invites" endpoint that does not exist; deferred. */}
+                    {/* Convidados que ainda não aceitaram (feedback QA 5a) —
+                        antes ficavam invisíveis (só têm Invite, sem Participant).
+                        Criador pode editar o e-mail ou remover. */}
+                    <PendingInvitesCard
+                      challengeId={challenge.id}
+                      invites={waitingRoom.pendingInvites ?? []}
+                      canManage={isCreator}
+                    />
+
+                    {/* Feedback QA 5d: prazo pra pagar + quando os dias começam. */}
+                    <div
+                      style={{
+                        background: 'var(--mint)',
+                        borderRadius: 12,
+                        padding: '10px 12px',
+                        marginTop: 14,
+                      }}
+                    >
+                      <div style={{ color: 'var(--green-ink)', fontWeight: 700, fontSize: '0.85rem' }}>
+                        ⏳ {formatPayDeadline(waitingRoom.deadline)}
+                      </div>
+                      <div
+                        style={{ color: 'var(--green-ink)', fontWeight: 600, fontSize: '0.8rem', marginTop: 3 }}
+                      >
+                        Os dias do desafio só começam a contar quando todo mundo pagar.
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <div
@@ -1138,7 +1184,10 @@ function ChallengeDetailPage() {
                   {formatBRL(prize)}
                 </div>
                 <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--green-ink)' }}>
-                  {participantCount} pessoas × {formatBRL(collab)} − {formatBRL(fee)} de taxa
+                  {/* Turma esperada (participantes + convites pendentes) pra o
+                      texto bater com o prêmio "se todo mundo pagar" (QA 5c). */}
+                  {waitingRoom?.totalCount ?? participantCount} pessoas × {formatBRL(collab)} −{' '}
+                  {formatBRL(fee)} de taxa
                 </div>
               </div>
 
