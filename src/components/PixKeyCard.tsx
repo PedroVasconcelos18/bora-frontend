@@ -1,76 +1,84 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { showToast } from './Toast';
 
-interface ProfilePixKey {
+interface ProfilePixKeys {
   pixKey: string | null;
+  pixKeys: string[];
 }
 
+const MAX_PIX_KEYS = 5;
+
 /**
- * PixKeyCard — D-1/D-3/D-4 profile-level Pix key editor.
+ * PixKeyCard — profile-level editor for the user's saved Pix keys.
  *
- * Read/edit the canonical Pix key stored on the user's profile (safety net
- * for winner payouts and refunds — see quick 260715-i98). Shares the
- * `['profile']` query key with the pay-flow prefill (PixPaymentCore) and the
- * winner cash-out prompt ($challengeId.tsx) so all three dedupe on the same
- * cache entry.
+ * Feedback: o usuário pode cadastrar até 5 chaves Pix. Cada chave é uma linha
+ * empilhada com uma lixeira pra excluir; "adicionar chave" cria uma linha nova
+ * (até 5) e "Salvar" persiste a lista inteira via PATCH /profile { pixKeys }.
  *
- * D-4: free text, trim-only — no CPF/email/phone/random format validation.
- *
- * Quick 260717-r07 (feedback item 1): once a key is saved, the raw input is
- * replaced by a "registered" list row + Editar button (input clears). This
- * gives explicit "está cadastrada" feedback instead of leaving the typed
- * value sitting in an editable box.
+ * Shares the ['profile'] query key with the pay-flow dropdown (PixPaymentCore)
+ * and the winner cash-out prompt so all three dedupe on the same cache entry.
+ * D-4: trim-only, no CPF/email/phone format validation.
  */
 export function PixKeyCard() {
   const queryClient = useQueryClient();
-  const { data: profile } = useQuery<ProfilePixKey>({
+  const { data: profile } = useQuery<ProfilePixKeys>({
     queryKey: ['profile'],
     queryFn: async () => {
       const res = await apiClient.get('/profile');
       if (!res.ok) throw new Error('profile-error');
-      return (await res.json()) as ProfilePixKey;
+      return (await res.json()) as ProfilePixKeys;
     },
   });
 
-  const [pixKey, setPixKey] = useState('');
-  // Edit mode: when a key already exists we default to the collapsed
-  // "registered" view; the input only appears while adding or editing.
-  const [editing, setEditing] = useState(false);
+  // Local editable copy of the list. Seeded once from the fetched value so a
+  // later invalidate-refetch (after saving) never stomps on what the user is
+  // currently editing.
+  const [keys, setKeys] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (!hydrated && profile) {
+      setKeys(profile.pixKeys ?? []);
+      setHydrated(true);
+    }
+  }, [hydrated, profile]);
 
   const saveMutation = useMutation({
-    mutationFn: async (value: string) => {
-      const res = await apiClient.patch('/profile', { pixKey: value });
+    mutationFn: async (list: string[]) => {
+      const res = await apiClient.patch('/profile', { pixKeys: list });
       if (!res.ok) throw new Error('save-error');
-      return (await res.json()) as ProfilePixKey;
+      return (await res.json()) as ProfilePixKeys;
     },
-    onSuccess: () => {
-      showToast('Chave Pix salva!');
-      // Collapse back to the registered view and clear the box (item 1).
-      setEditing(false);
-      setPixKey('');
+    onSuccess: (data) => {
+      showToast('Chaves Pix salvas!');
+      // Re-seed local state from the normalized server response (trimmed,
+      // deduped, blanks dropped) so the UI reflects exactly what was stored.
+      setKeys(data.pixKeys ?? []);
       void queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
-    onError: () => {
-      showToast('Erro ao salvar chave Pix. Tente novamente.');
-    },
+    onError: () => showToast('Erro ao salvar chaves Pix. Tente novamente.'),
   });
 
-  const savedKey = profile?.pixKey ?? '';
-  const hasKey = !!savedKey;
-  // Show the input while adding a first key OR while explicitly editing.
-  const showInput = !hasKey || editing;
-
-  const startEditing = () => {
-    setPixKey(savedKey);
-    setEditing(true);
+  const updateKey = (index: number, value: string) => {
+    setKeys((prev) => prev.map((k, i) => (i === index ? value : k)));
   };
 
-  const cancelEditing = () => {
-    setEditing(false);
-    setPixKey('');
+  const removeKey = (index: number) => {
+    setKeys((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const addKey = () => {
+    setKeys((prev) => (prev.length >= MAX_PIX_KEYS ? prev : [...prev, '']));
+  };
+
+  const handleSave = () => {
+    // Drop blanks before persisting; server normalizes/dedupes too.
+    saveMutation.mutate(keys.map((k) => k.trim()).filter((k) => k.length > 0));
+  };
+
+  const canAdd = keys.length < MAX_PIX_KEYS;
 
   return (
     <div
@@ -81,160 +89,119 @@ export function PixKeyCard() {
         padding: 18,
       }}
     >
-      <h3
+      <div
         style={{
-          fontFamily: '"Baloo 2", system-ui, sans-serif',
-          fontWeight: 700,
-          fontSize: '1.05rem',
-          color: 'var(--ink)',
-          marginBottom: showInput ? (hasKey ? 12 : 8) : 12,
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          marginBottom: keys.length > 0 ? 12 : 8,
         }}
       >
-        Sua chave Pix
-      </h3>
+        <h3
+          style={{
+            fontFamily: '"Baloo 2", system-ui, sans-serif',
+            fontWeight: 700,
+            fontSize: '1.05rem',
+            color: 'var(--ink)',
+          }}
+        >
+          Suas chaves Pix
+        </h3>
+        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--muted)' }}>
+          {keys.length}/{MAX_PIX_KEYS}
+        </span>
+      </div>
 
-      {!hasKey && !editing && (
+      {keys.length === 0 && (
         <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 12, lineHeight: 1.4 }}>
-          Cadastre sua chave Pix pra receber prêmios e reembolsos sem correria.
+          Cadastre suas chaves Pix pra receber prêmios e reembolsos sem correria.
         </p>
       )}
 
-      {showInput ? (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="text"
-            value={pixKey}
-            onChange={(e) => setPixKey(e.target.value)}
-            placeholder="CPF, e-mail, telefone ou chave aleatória"
-            aria-label="Sua chave Pix"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              background: 'var(--paper)',
-              border: '1px solid var(--line)',
-              borderRadius: 10,
-              padding: '10px 12px',
-              fontSize: '0.88rem',
-              color: 'var(--ink)',
-              outline: 'none',
-            }}
-          />
-          {hasKey && (
-            <button
-              type="button"
-              onClick={cancelEditing}
-              disabled={saveMutation.isPending}
+      {/* Chaves empilhadas — cada uma com input + lixeira */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+        {keys.map((key, index) => (
+          <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="text"
+              value={key}
+              onChange={(e) => updateKey(index, e.target.value)}
+              placeholder="CPF, e-mail, telefone ou chave aleatória"
+              aria-label={`Chave Pix ${index + 1}`}
               style={{
-                background: 'var(--card)',
-                color: 'var(--muted)',
+                flex: 1,
+                minWidth: 0,
+                background: 'var(--paper)',
                 border: '1px solid var(--line)',
                 borderRadius: 10,
-                padding: '10px 14px',
-                fontWeight: 700,
-                fontSize: '0.85rem',
-                cursor: saveMutation.isPending ? 'not-allowed' : 'pointer',
-                whiteSpace: 'nowrap',
-                fontFamily: '"Baloo 2", system-ui, sans-serif',
+                padding: '10px 12px',
+                fontSize: '0.88rem',
+                color: 'var(--ink)',
+                outline: 'none',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => removeKey(index)}
+              aria-label={`Excluir chave Pix ${index + 1}`}
+              title="Excluir"
+              style={{
+                background: 'var(--card)',
+                border: '1px solid var(--line)',
+                borderRadius: 10,
+                padding: '9px 11px',
+                fontSize: '1rem',
+                lineHeight: 1,
+                cursor: 'pointer',
+                flexShrink: 0,
               }}
             >
-              Cancelar
+              🗑️
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => saveMutation.mutate(pixKey)}
-            disabled={saveMutation.isPending}
-            style={{
-              background: 'var(--green-bright)',
-              color: 'var(--green-ink)',
-              border: 'none',
-              borderRadius: 10,
-              padding: '10px 16px',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              cursor: saveMutation.isPending ? 'not-allowed' : 'pointer',
-              opacity: saveMutation.isPending ? 0.6 : 1,
-              whiteSpace: 'nowrap',
-              fontFamily: '"Baloo 2", system-ui, sans-serif',
-            }}
-          >
-            {saveMutation.isPending ? 'Salvando...' : 'Salvar'}
-          </button>
-        </div>
-      ) : (
-        // Registered view — the key is shown as a list row, box cleared (item 1).
-        <div
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={addKey}
+          disabled={!canAdd}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            background: 'var(--paper)',
-            border: '1px solid var(--line)',
-            borderRadius: 12,
-            padding: '12px 14px',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            color: canAdd ? 'var(--green)' : 'var(--muted)',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            cursor: canAdd ? 'pointer' : 'not-allowed',
+            fontFamily: '"Baloo 2", system-ui, sans-serif',
           }}
         >
-          <span
-            aria-hidden="true"
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: '50%',
-              background: 'var(--mint)',
-              color: 'var(--green-ink)',
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: '0.8rem',
-              flexShrink: 0,
-            }}
-          >
-            ✓
-          </span>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.03em',
-                color: 'var(--green-ink)',
-              }}
-            >
-              Chave cadastrada
-            </div>
-            <div
-              style={{
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                color: 'var(--ink)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {savedKey}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={startEditing}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              color: 'var(--green)',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              fontFamily: '"Baloo 2", system-ui, sans-serif',
-              flexShrink: 0,
-            }}
-          >
-            Editar
-          </button>
-        </div>
-      )}
+          + Adicionar chave
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saveMutation.isPending}
+          style={{
+            marginLeft: 'auto',
+            background: 'var(--green-bright)',
+            color: 'var(--green-ink)',
+            border: 'none',
+            borderRadius: 10,
+            padding: '10px 16px',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            cursor: saveMutation.isPending ? 'not-allowed' : 'pointer',
+            opacity: saveMutation.isPending ? 0.6 : 1,
+            whiteSpace: 'nowrap',
+            fontFamily: '"Baloo 2", system-ui, sans-serif',
+          }}
+        >
+          {saveMutation.isPending ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
     </div>
   );
 }

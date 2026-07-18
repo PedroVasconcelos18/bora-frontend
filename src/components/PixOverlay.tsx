@@ -29,7 +29,7 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
     chargeMutation,
     pixKey,
     setPixKey,
-    profilePixKey,
+    profilePixKeys,
     challengeSummary,
     isExpired,
     countdown,
@@ -270,7 +270,7 @@ export function PixOverlay({ challengeId, token, onClose, title }: PixOverlayPro
               <PixKeyInlineField
                 id="pix-overlay-key"
                 label="Sua chave Pix (para reembolso, caso o desafio seja cancelado)"
-                savedKey={profilePixKey}
+                savedKeys={profilePixKeys}
                 value={pixKey}
                 onChange={setPixKey}
               />

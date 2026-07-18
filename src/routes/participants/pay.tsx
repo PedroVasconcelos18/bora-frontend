@@ -33,7 +33,7 @@ function PayPage() {
     chargeMutation,
     pixKey,
     setPixKey,
-    profilePixKey,
+    profilePixKeys,
     challengeSummary,
     isPending,
     isError,
@@ -227,7 +227,7 @@ function PayPage() {
             <PixKeyInlineField
               id="pixKey"
               label="Sua chave Pix (para reembolso, caso o desafio seja cancelado)"
-              savedKey={profilePixKey}
+              savedKeys={profilePixKeys}
               value={pixKey}
               onChange={setPixKey}
             />
