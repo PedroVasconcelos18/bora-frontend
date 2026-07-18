@@ -623,6 +623,11 @@ function ChallengeDetailPage() {
     }
   };
 
+  // Item L: sequência de dias do usuário (1/N ✓/✗), computada a partir do
+  // ranking. Hoistada pra antes do return mobile pra alimentar a grade de dias
+  // da aba "Suas evidências" no mobile (o web já usava isto na coluna 1).
+  const myStreak = ranking?.participants.find((p) => p.id === myParticipant?.id)?.streak ?? [];
+
   // D-12: the pre-existing mobile <section> return, moved unchanged inside
   // this gate — its markup/text/WAITING/ACTIVE(SegmentedTabs)/FINISHED
   // blocks are untouched, so <768px stays byte-identical.
@@ -955,18 +960,25 @@ function ChallengeDetailPage() {
             {(activeTab) => {
               if (activeTab === 'hoje') {
                 return (
-                  <EvidenceUploadCard
-                    challengeId={challenge.id}
-                    isPaid={myParticipant?.status === 'PAID'}
-                    todayEvidence={todayEvidence}
-                    onUploaded={() => {
-                      void queryClient.invalidateQueries({ queryKey: ['evidence-today', challengeId] });
-                      // D-09: the acting user's own posted-today state feeds
-                      // into their streak grid — invalidate immediately
-                      // rather than waiting for a window-focus refetch.
-                      void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
-                    }}
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <EvidenceUploadCard
+                      challengeId={challenge.id}
+                      isPaid={myParticipant?.status === 'PAID'}
+                      todayEvidence={todayEvidence}
+                      onUploaded={() => {
+                        void queryClient.invalidateQueries({ queryKey: ['evidence-today', challengeId] });
+                        // D-09: the acting user's own posted-today state feeds
+                        // into their streak grid — invalidate immediately
+                        // rather than waiting for a window-focus refetch.
+                        void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
+                      }}
+                    />
+                    {/* Item L: lista de todos os dias do desafio (1/N ✓/✗). */}
+                    <div>
+                      <div style={{ ...cardHeadingStyle, marginBottom: 10 }}>Sua sequência</div>
+                      <StreakGrid streak={myStreak} />
+                    </div>
+                  </div>
                 );
               }
 
@@ -1658,9 +1670,6 @@ function ChallengeDetailPage() {
     maximumFractionDigits: 2,
   });
 
-  // Default panel data (CHALW-01/D-04, Task 2) — reshapes the route's
-  // already-fetched queries only, no new query/endpoint.
-  const myStreak = ranking?.participants.find((p) => p.id === myParticipant?.id)?.streak ?? [];
 
   // Votação aberta teaser (omitted entirely when N === 0, per D-04).
   const votableCount = votableEvidences?.length ?? 0;
@@ -1840,7 +1849,7 @@ function ChallengeDetailPage() {
         {/* Column 2 — hoje */}
         <div style={{ flex: '2 1 420px', minWidth: 320, display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div>
-            <div style={{ ...cardHeadingStyle, marginBottom: 10 }}>Hoje</div>
+            <div style={{ ...cardHeadingStyle, marginBottom: 10 }}>Suas evidências</div>
             <EvidenceUploadCard
               challengeId={challenge.id}
               isPaid={myParticipant?.status === 'PAID'}

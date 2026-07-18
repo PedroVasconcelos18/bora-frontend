@@ -8,7 +8,7 @@ interface SegmentedTab {
 }
 
 const TABS: SegmentedTab[] = [
-  { key: 'hoje', label: 'Hoje' },
+  { key: 'hoje', label: 'Suas evidências' },
   { key: 'votar', label: 'Votar' },
   { key: 'ranking', label: 'Ranking' },
 ];
