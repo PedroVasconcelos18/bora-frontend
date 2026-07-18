@@ -9,15 +9,20 @@
  */
 
 export interface WaitingRoomParticipant {
+  id?: string;
   name: string;
   paid: boolean;
+  /** Só o criador vê "Excluir", e só para aceito-não-pago (item B). */
+  removable?: boolean;
 }
 
 interface WaitingRoomListProps {
   participants: WaitingRoomParticipant[];
+  onRemove?: (id: string) => void;
+  busy?: boolean;
 }
 
-export function WaitingRoomList({ participants }: WaitingRoomListProps) {
+export function WaitingRoomList({ participants, onRemove, busy }: WaitingRoomListProps) {
   return (
     <div>
       {participants.map((p, idx) => {
@@ -74,6 +79,26 @@ export function WaitingRoomList({ participants }: WaitingRoomListProps) {
             >
               {p.paid ? 'Pagou' : 'Aguardando'}
             </span>
+            {p.removable && p.id && onRemove && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onRemove(p.id as string)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '4px 4px',
+                  cursor: busy ? 'default' : 'pointer',
+                  color: 'var(--coral)',
+                  fontWeight: 700,
+                  fontSize: '0.72rem',
+                  opacity: busy ? 0.5 : 1,
+                  flexShrink: 0,
+                }}
+              >
+                Excluir
+              </button>
+            )}
           </div>
         );
       })}

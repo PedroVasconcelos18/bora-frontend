@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { StatusPill } from '../../components/StatusPill';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { WaitingRoomList } from '../../components/WaitingRoomList';
+import type { WaitingRoomParticipant } from '../../components/WaitingRoomList';
 import { PendingInvitesCard } from '../../components/PendingInvitesCard';
 import { CopyableInviteLink } from '../../components/CopyableInviteLink';
 import { PixOverlay } from '../../components/PixOverlay';
@@ -528,6 +529,37 @@ function ChallengeDetailPage() {
     }
   };
 
+  // Item B: criador remove um participante aceito-não-pago enquanto WAITING.
+  // Guard-rails no backend (DELETE /challenges/:id/participants/:pid).
+  const removeParticipantMutation = useMutation({
+    mutationFn: async (participantId: string) => {
+      const res = await apiClient.delete(
+        `/challenges/${challengeId}/participants/${participantId}`,
+      );
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(errBody.message ?? 'Erro ao remover participante. Tente novamente.');
+      }
+      return res.json() as Promise<{
+        removed: true;
+        challengeCancelled: boolean;
+        remainingParticipants: number;
+      }>;
+    },
+    onSuccess: (data) => {
+      showToast(
+        data.challengeCancelled
+          ? 'Desafio cancelado — reembolsos foram pra fila.'
+          : 'Participante removido.',
+      );
+      void queryClient.invalidateQueries({ queryKey: ['challenge', challengeId] });
+      void queryClient.invalidateQueries({ queryKey: ['waiting-room', challengeId] });
+    },
+    onError: (err: Error) => {
+      showToast(err.message ?? 'Erro ao remover participante.');
+    },
+  });
+
   // D-12 (Plan 07-05, Task 1): the web sala de espera opens the shared Pix
   // core in-place (PixOverlay) instead of navigating to /participants/pay —
   // this state is hoisted above the early returns below so it stays a
@@ -617,6 +649,35 @@ function ChallengeDetailPage() {
     ? challenge.participants.find((p) => p.user.id === user.id)
     : undefined;
   const isCreator = !!user && user.id === challenge.creatorId;
+
+  // Item B: roster da sala de espera com id/status pra permitir excluir aceito-
+  // não-pago. Só o criador vê "Excluir", e só para quem não pagou e não é o
+  // próprio criador. Definido antes do return mobile pra ser compartilhado por
+  // todos os sites de <WaitingRoomList>.
+  const waitingRoomRoster: WaitingRoomParticipant[] = challenge.participants.map((p) => ({
+    id: p.id,
+    name: p.user.name,
+    paid: p.status === 'PAID' || !!p.paidAt,
+    removable:
+      isCreator &&
+      challenge.status === 'WAITING' &&
+      p.status !== 'PAID' &&
+      !p.paidAt &&
+      p.user.id !== challenge.creatorId,
+  }));
+
+  const handleRemoveParticipant = (participantId: string) => {
+    const target = challenge.participants.find((p) => p.id === participantId);
+    const name = target?.user.name ?? 'este participante';
+    const remaining = challenge.participants.length - 1;
+    const message =
+      remaining < 3
+        ? `Remover ${name}? A turma ficará com menos de 3 pessoas e o desafio será cancelado (quem já pagou entra na fila de reembolso). Continuar?`
+        : `Remover ${name} da turma?`;
+    if (window.confirm(message)) {
+      removeParticipantMutation.mutate(participantId);
+    }
+  };
 
   // D-12: the pre-existing mobile <section> return, moved unchanged inside
   // this gate — its markup/text/WAITING/ACTIVE(SegmentedTabs)/FINISHED
@@ -850,7 +911,11 @@ function ChallengeDetailPage() {
               </div>
 
               {waitingRoom.participants.length > 0 && (
-                <WaitingRoomList participants={waitingRoom.participants} />
+                <WaitingRoomList
+                  participants={waitingRoomRoster}
+                  onRemove={handleRemoveParticipant}
+                  busy={removeParticipantMutation.isPending}
+                />
               )}
 
               {/* Convidados que ainda não aceitaram (feedback QA 5a) */}
@@ -1136,7 +1201,11 @@ function ChallengeDetailPage() {
                       />
                     </div>
                     {waitingRoom.participants.length > 0 && (
-                      <WaitingRoomList participants={waitingRoom.participants} />
+                      <WaitingRoomList
+                        participants={waitingRoomRoster}
+                        onRemove={handleRemoveParticipant}
+                        busy={removeParticipantMutation.isPending}
+                      />
                     )}
                     {/* Convidados que ainda não aceitaram (feedback QA 5a) —
                         antes ficavam invisíveis (só têm Invite, sem Participant).
@@ -1647,10 +1716,6 @@ function ChallengeDetailPage() {
 
   // Default panel data (CHALW-01/D-04, Task 2) — reshapes the route's
   // already-fetched queries only, no new query/endpoint.
-  const turmaParticipants = challenge.participants.map((p) => ({
-    name: p.user.name,
-    paid: p.status === 'PAID' || !!p.paidAt,
-  }));
   const myStreak = ranking?.participants.find((p) => p.id === myParticipant?.id)?.streak ?? [];
 
   // Feed preview (D-06): own evidence (if posted) + others' votable
@@ -1823,7 +1888,11 @@ function ChallengeDetailPage() {
 
           <div style={infoCardStyle}>
             <div style={cardHeadingStyle}>A turma</div>
-            <WaitingRoomList participants={turmaParticipants} />
+            <WaitingRoomList
+              participants={waitingRoomRoster}
+              onRemove={handleRemoveParticipant}
+              busy={removeParticipantMutation.isPending}
+            />
           </div>
 
           <div style={infoCardStyle}>
