@@ -50,16 +50,16 @@ describe('stepCollab', () => {
     expect(stepCollab(200, 1)).toBe(200);
   });
 
-  it('7 - 1 step clamps at the 5 floor (never 2, never negative)', () => {
-    expect(stepCollab(7, -1)).toBe(5);
+  it('12 - 1 step clamps at the 10 floor (never below the minimum)', () => {
+    expect(stepCollab(12, -1)).toBe(10);
   });
 
-  it('5 - 1 step stays at 5 (already at floor)', () => {
-    expect(stepCollab(5, -1)).toBe(5);
+  it('10 - 1 step stays at 10 (already at floor)', () => {
+    expect(stepCollab(10, -1)).toBe(10);
   });
 
-  it('NaN + 1 step resolves to the 5 floor (empty input never yields NaN)', () => {
-    expect(stepCollab(NaN, 1)).toBe(5);
+  it('NaN + 1 step resolves to the 10 floor (empty input never yields NaN)', () => {
+    expect(stepCollab(NaN, 1)).toBe(10);
   });
 });
 

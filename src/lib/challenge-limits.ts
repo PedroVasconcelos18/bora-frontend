@@ -16,7 +16,7 @@
 /** Numeric bounds + step for every limited field in the create-challenge form. */
 export const CHALLENGE_LIMITS = {
   durationDays: { min: 3, max: 365 },
-  collabAmount: { min: 5, max: 200, step: 5 },
+  collabAmount: { min: 10, max: 200, step: 5 },
   // invitees.max = maxParticipants - 1: o criador ocupa uma das 10 vagas,
   // então o teto de convidados é 9, não 10.
   invitees: { min: 2, max: 9 },
@@ -28,7 +28,7 @@ export const LIMIT_MESSAGES = {
   titleRequired: 'Dá um nome pro desafio 🙂',
   durationMin: 'A duração mínima é de 3 dias.',
   durationMax: 'A duração máxima é de 365 dias.',
-  collabMin: 'A colaboração mínima é R$ 5.',
+  collabMin: 'A colaboração mínima é R$ 10.',
   collabMax: 'A colaboração máxima é R$ 200.',
   inviteesMin: 'Convide pelo menos 2 amigos (mínimo de 3 pessoas).',
   inviteesMax: 'O desafio aceita no máximo 10 pessoas — convide até 9 amigos.',

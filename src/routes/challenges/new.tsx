@@ -453,6 +453,18 @@ function NewChallengePage() {
             collabAmount={Number(collabAmount) || 0}
           />
 
+          {/* Aviso curto de regras (item A): mínimo 3 pessoas / R$ 10. */}
+          <p
+            style={{
+              color: 'var(--muted)',
+              fontSize: '0.8rem',
+              lineHeight: 1.4,
+              margin: '12px 0 0',
+            }}
+          >
+            Todo desafio precisa de no mínimo 3 pessoas e colaboração a partir de R$ 10.
+          </p>
+
           {/* CTA — verbatim from Copywriting Contract */}
           <PrimaryButton type="submit" loading={isSubmitting}>
             Criar desafio · taxa R$ 10 via Pix
@@ -751,6 +763,18 @@ function NewChallengePage() {
               emailsText={inviteesText}
               collabAmount={Number(collabAmount) || 0}
             />
+
+            {/* Aviso curto de regras (item A): mínimo 3 pessoas / R$ 10. */}
+            <p
+              style={{
+                color: 'var(--muted)',
+                fontSize: '0.8rem',
+                lineHeight: 1.4,
+                margin: '12px 0 0',
+              }}
+            >
+              Todo desafio precisa de no mínimo 3 pessoas e colaboração a partir de R$ 10.
+            </p>
 
             <PrimaryButton type="submit" loading={isSubmitting}>
               Criar e convidar a turma
