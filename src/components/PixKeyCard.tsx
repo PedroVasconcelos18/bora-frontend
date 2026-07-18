@@ -14,8 +14,9 @@ const MAX_PIX_KEYS = 5;
  * PixKeyCard — profile-level editor for the user's saved Pix keys.
  *
  * Feedback: o usuário pode cadastrar até 5 chaves Pix. Cada chave é uma linha
- * empilhada com uma lixeira pra excluir; "adicionar chave" cria uma linha nova
- * (até 5) e "Salvar" persiste a lista inteira via PATCH /profile { pixKeys }.
+ * empilhada em somente-leitura, com um lápis pra liberar a edição e uma lixeira
+ * pra excluir; "adicionar chave" cria uma linha nova já editável (até 5) e
+ * "Salvar" persiste a lista inteira via PATCH /profile { pixKeys }.
  *
  * Shares the ['profile'] query key with the pay-flow dropdown (PixPaymentCore)
  * and the winner cash-out prompt so all three dedupe on the same cache entry.
@@ -37,6 +38,13 @@ export function PixKeyCard() {
   // currently editing.
   const [keys, setKeys] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  // Feedback: chaves salvas ficam em somente-leitura até o usuário clicar no
+  // lápis. Guardamos os índices em edição — chaves novas (via "+ Adicionar")
+  // entram já editáveis, senão não dava pra digitar nelas.
+  const [editingIdx, setEditingIdx] = useState<Set<number>>(new Set());
+  const isEditing = (index: number) => editingIdx.has(index);
+  const enableEdit = (index: number) =>
+    setEditingIdx((prev) => new Set(prev).add(index));
 
   useEffect(() => {
     if (!hydrated && profile) {
@@ -56,6 +64,8 @@ export function PixKeyCard() {
       // Re-seed local state from the normalized server response (trimmed,
       // deduped, blanks dropped) so the UI reflects exactly what was stored.
       setKeys(data.pixKeys ?? []);
+      // Depois de salvar, tudo volta a ficar travado (somente-leitura).
+      setEditingIdx(new Set());
       void queryClient.invalidateQueries({ queryKey: ['profile'] });
     },
     onError: () => showToast('Erro ao salvar chaves Pix. Tente novamente.'),
@@ -67,10 +77,23 @@ export function PixKeyCard() {
 
   const removeKey = (index: number) => {
     setKeys((prev) => prev.filter((_, i) => i !== index));
+    // Reindexa os índices em edição: descarta o removido e desloca os de cima.
+    setEditingIdx((prev) => {
+      const next = new Set<number>();
+      prev.forEach((j) => {
+        if (j < index) next.add(j);
+        else if (j > index) next.add(j - 1);
+      });
+      return next;
+    });
   };
 
   const addKey = () => {
-    setKeys((prev) => (prev.length >= MAX_PIX_KEYS ? prev : [...prev, '']));
+    if (keys.length >= MAX_PIX_KEYS) return;
+    const newIndex = keys.length;
+    setKeys((prev) => [...prev, '']);
+    // Chave nova já entra editável.
+    enableEdit(newIndex);
   };
 
   const handleSave = () => {
@@ -120,46 +143,71 @@ export function PixKeyCard() {
 
       {/* Chaves empilhadas — cada uma com input + lixeira */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-        {keys.map((key, index) => (
-          <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="text"
-              value={key}
-              onChange={(e) => updateKey(index, e.target.value)}
-              placeholder="CPF, e-mail, telefone ou chave aleatória"
-              aria-label={`Chave Pix ${index + 1}`}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                background: 'var(--paper)',
-                border: '1px solid var(--line)',
-                borderRadius: 10,
-                padding: '10px 12px',
-                fontSize: '0.88rem',
-                color: 'var(--ink)',
-                outline: 'none',
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => removeKey(index)}
-              aria-label={`Excluir chave Pix ${index + 1}`}
-              title="Excluir"
-              style={{
-                background: 'var(--card)',
-                border: '1px solid var(--line)',
-                borderRadius: 10,
-                padding: '9px 11px',
-                fontSize: '1rem',
-                lineHeight: 1,
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              🗑️
-            </button>
-          </div>
-        ))}
+        {keys.map((key, index) => {
+          const editing = isEditing(index);
+          return (
+            <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="text"
+                value={key}
+                onChange={(e) => updateKey(index, e.target.value)}
+                readOnly={!editing}
+                placeholder="CPF, e-mail, telefone ou chave aleatória"
+                aria-label={`Chave Pix ${index + 1}`}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  background: editing ? 'var(--paper)' : 'var(--card)',
+                  border: editing ? '1px solid var(--line)' : '1px solid transparent',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  fontSize: '0.88rem',
+                  color: editing ? 'var(--ink)' : 'var(--muted)',
+                  outline: 'none',
+                  cursor: editing ? 'text' : 'default',
+                }}
+              />
+              {!editing && (
+                <button
+                  type="button"
+                  onClick={() => enableEdit(index)}
+                  aria-label={`Editar chave Pix ${index + 1}`}
+                  title="Editar"
+                  style={{
+                    background: 'var(--card)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 10,
+                    padding: '9px 11px',
+                    fontSize: '1rem',
+                    lineHeight: 1,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  ✏️
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => removeKey(index)}
+                aria-label={`Excluir chave Pix ${index + 1}`}
+                title="Excluir"
+                style={{
+                  background: 'var(--card)',
+                  border: '1px solid var(--line)',
+                  borderRadius: 10,
+                  padding: '9px 11px',
+                  fontSize: '1rem',
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                🗑️
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
