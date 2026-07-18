@@ -19,6 +19,8 @@ export interface VoteCardEvidence {
   windowClosesAt: string;
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
   hasVoted: boolean;
+  /** Item I: como o próprio usuário votou (verde=SIM / coral=NAO). */
+  myVote: VoteValue | null;
 }
 
 interface VoteCardProps {
@@ -67,7 +69,7 @@ export function VoteCard({ evidence, isVoting, onVote }: VoteCardProps) {
           <div style={metaStyle}>{formatPostedMeta(evidence.windowClosesAt)}</div>
         </div>
         {showHeaderVotedBadge && (
-          <span style={votedBadgeStyle}>✓ Já votei</span>
+          <span style={votedBadgeStyleFor(evidence.myVote)}>{votedBadgeLabel(evidence.myVote)}</span>
         )}
       </div>
 
@@ -237,6 +239,27 @@ const votedBadgeStyle: React.CSSProperties = {
   flexShrink: 0,
   whiteSpace: 'nowrap',
 };
+
+/**
+ * Item I: colore o badge "já votei" conforme o voto do usuário — verde (SIM),
+ * coral (NAO), reaproveitando a paleta dos VoteButtons. `null` (voto
+ * desconhecido) mantém o neutro atual.
+ */
+function votedBadgeStyleFor(myVote: VoteValue | null): React.CSSProperties {
+  if (myVote === 'SIM') {
+    return { ...votedBadgeStyle, background: 'var(--green-bright)', color: 'var(--green-ink)' };
+  }
+  if (myVote === 'NAO') {
+    return { ...votedBadgeStyle, background: '#FFE2DA', color: 'var(--coral)' };
+  }
+  return votedBadgeStyle;
+}
+
+function votedBadgeLabel(myVote: VoteValue | null): string {
+  if (myVote === 'SIM') return '✓ Votei: valeu';
+  if (myVote === 'NAO') return 'Votei: não rolou';
+  return '✓ Já votei';
+}
 
 const hiddenVotesCaptionStyle: React.CSSProperties = {
   fontSize: '0.72rem',
