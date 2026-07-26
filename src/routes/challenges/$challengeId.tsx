@@ -16,6 +16,12 @@ import { EvidenceUploadCard, type TodayEvidence } from '../../components/Evidenc
 import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
 import { RankingList, type RankingData } from '../../components/RankingList';
 import { StreakGrid, type StreakCellState } from '../../components/StreakGrid';
+import { EvidenceDayList } from '../../components/EvidenceDayList';
+import {
+  challengeDayNumber,
+  formatSaoPauloShortDate,
+  saoPauloDaysBetween,
+} from '../../lib/sao-paulo-day';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
 
@@ -158,24 +164,25 @@ function formatLeaderNames(names: string[]): string {
 // Item D: quando o criador escolheu uma data de início (startsAt), a contagem
 // mostra quantos dias faltam PRA COMEÇAR o desafio; sem startsAt, cai no
 // comportamento antigo de prazo de pagamento (deadline).
+// Datas e contagens saem por dia-calendário de São Paulo (lib/sao-paulo-day):
+// formatar com o fuso do device mostrava a véspera da data escolhida, e contar
+// blocos de 24h corridas fazia a contagem discordar da grade do ranking.
 function formatPayDeadline(startsAtIso: string | null | undefined, deadlineIso: string): string {
-  const dayMs = 24 * 60 * 60 * 1000;
+  const now = new Date();
 
   if (startsAtIso) {
     const startsAt = new Date(startsAtIso);
-    const msLeft = startsAt.getTime() - Date.now();
-    const dateLabel = startsAt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    if (msLeft <= 0) return `O desafio começa hoje (${dateLabel}).`;
-    const daysLeft = Math.ceil(msLeft / dayMs);
+    const dateLabel = formatSaoPauloShortDate(startsAt);
+    const daysLeft = saoPauloDaysBetween(now, startsAt);
+    if (daysLeft <= 0) return `O desafio começa hoje (${dateLabel}).`;
     if (daysLeft === 1) return `Falta 1 dia pro desafio começar (${dateLabel}).`;
     return `Faltam ${daysLeft} dias pro desafio começar (${dateLabel}).`;
   }
 
   const deadline = new Date(deadlineIso);
-  const msLeft = deadline.getTime() - Date.now();
-  const dateLabel = deadline.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  if (msLeft <= 0) return `O prazo pra todo mundo pagar terminou (${dateLabel}).`;
-  const daysLeft = Math.ceil(msLeft / dayMs);
+  const dateLabel = formatSaoPauloShortDate(deadline);
+  const daysLeft = saoPauloDaysBetween(now, deadline);
+  if (daysLeft <= 0) return `O prazo pra todo mundo pagar terminou (${dateLabel}).`;
   if (daysLeft === 1) return `Falta 1 dia pra todo mundo pagar (até ${dateLabel}).`;
   return `Faltam ${daysLeft} dias pra todo mundo pagar (até ${dateLabel}).`;
 }
@@ -973,10 +980,14 @@ function ChallengeDetailPage() {
                         void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
                       }}
                     />
-                    {/* Item L: lista de todos os dias do desafio (1/N ✓/✗). */}
+                    {/* Item L: a sequência resumida na grade + a lista dia a dia
+                        numerada logo abaixo (Dia 1/30 ✓, Dia 2/30 ✕). */}
                     <div>
                       <div style={{ ...cardHeadingStyle, marginBottom: 10 }}>Sua sequência</div>
                       <StreakGrid streak={myStreak} />
+                      <div style={{ marginTop: 12 }}>
+                        <EvidenceDayList streak={myStreak} startsAt={challenge.startsAt} />
+                      </div>
                     </div>
                   </div>
                 );
@@ -1640,7 +1651,79 @@ function ChallengeDetailPage() {
       );
     }
 
-    return null;
+    // CANCELLED (e qualquer outro status não coberto acima) caía num `return
+    // null` — a coluna de conteúdo do layout web ficava literalmente em branco,
+    // só com a sidebar, sem nem dizer o que houve. O mobile já mostrava o
+    // cabeçalho; aqui vai o mesmo fato com a explicação do reembolso.
+    return (
+      <div style={{ maxWidth: 560 }}>
+        <Link
+          to="/home"
+          style={{
+            color: 'var(--muted)',
+            fontWeight: 700,
+            fontSize: '0.92rem',
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 14,
+          }}
+        >
+          ← Seus desafios
+        </Link>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18 }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 16,
+              background: 'var(--mint)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: '1.8rem',
+              flexShrink: 0,
+            }}
+            aria-hidden="true"
+          >
+            {challenge.emoji}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <h1 style={{ fontFamily: '"Baloo 2", system-ui, sans-serif', fontSize: '1.6rem', margin: 0 }}>
+                {challenge.title}
+              </h1>
+              <StatusPill status={challenge.status} />
+            </div>
+            <div style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.9rem', marginTop: 4 }}>
+              {challenge.durationDays} dias · {formatBRL(collab)} por pessoa
+            </div>
+          </div>
+        </div>
+
+        <div style={infoCardStyle}>
+          <div style={cardHeadingStyle}>Desafio cancelado</div>
+          <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.9rem', margin: '0 0 10px' }}>
+            Este desafio foi cancelado e não vai mais começar. Ele fica aqui só como histórico.
+          </p>
+          {myParticipant?.status === 'PAID' ? (
+            <p style={{ color: 'var(--ink)', fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>
+              Você já tinha pago {formatBRL(collab)}: o valor entrou na fila de reembolso e volta pra
+              sua chave Pix. Se a chave não estiver cadastrada, dá pra{' '}
+              <Link to="/profile" style={{ color: 'var(--green)', fontWeight: 700 }}>
+                cadastrar no perfil
+              </Link>
+              .
+            </p>
+          ) : (
+            <p style={{ color: 'var(--muted)', fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>
+              Você não chegou a pagar a entrada — não há nada a reembolsar.
+            </p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   // ACTIVE, web: shared header (D-01) + panel region. Only 'default' is
@@ -1651,18 +1734,14 @@ function ChallengeDetailPage() {
   const endsAtDate = startsAtDate
     ? new Date(startsAtDate.getTime() + (challenge.durationDays - 1) * 24 * 60 * 60 * 1000)
     : null;
-  // Client-side "Dia X de Y" display estimate (not authoritative — the
-  // backend's per-day streak derivation already uses São Paulo calendar
-  // days; this is a header meta line only, no new query).
+  // "Dia X de Y" pela MESMA regra do ranking (dia-calendário SP, dia 1 = dia de
+  // startsAt). A conta anterior — blocos de 24h corridas — divergia da grade:
+  // o header dizia "Dia 2" enquanto a grade já marcava a terceira célula.
   const dayOfChallenge = startsAtDate
-    ? Math.min(
-        challenge.durationDays,
-        Math.max(1, Math.floor((Date.now() - startsAtDate.getTime()) / (24 * 60 * 60 * 1000)) + 1),
-      )
+    ? challengeDayNumber(startsAtDate, challenge.durationDays)
     : 1;
-  const shortDateFormat: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit' };
-  const formattedStart = startsAtDate ? startsAtDate.toLocaleDateString('pt-BR', shortDateFormat) : '—';
-  const formattedEnd = endsAtDate ? endsAtDate.toLocaleDateString('pt-BR', shortDateFormat) : '—';
+  const formattedStart = startsAtDate ? formatSaoPauloShortDate(startsAtDate) : '—';
+  const formattedEnd = endsAtDate ? formatSaoPauloShortDate(endsAtDate) : '—';
   const formattedPrize = prize.toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -1672,12 +1751,15 @@ function ChallengeDetailPage() {
 
 
   // Votação aberta teaser (omitted entirely when N === 0, per D-04).
-  const votableCount = votableEvidences?.length ?? 0;
+  // A lista do dia agora inclui as evidências já resolvidas (a janela fecha COM
+  // o resultado), então o teaser conta só as que ainda esperam voto.
+  const pendingVotables = votableEvidences?.filter((e) => e.status === 'PENDING') ?? [];
+  const votableCount = pendingVotables.length;
   const earliestWindowCloses =
-    votableEvidences && votableEvidences.length > 0
-      ? votableEvidences.reduce(
+    pendingVotables.length > 0
+      ? pendingVotables.reduce(
           (earliest, e) => (new Date(e.windowClosesAt) < new Date(earliest) ? e.windowClosesAt : earliest),
-          votableEvidences[0].windowClosesAt,
+          pendingVotables[0].windowClosesAt,
         )
       : null;
   const formattedVoteDeadline = earliestWindowCloses ? formatClockTime(new Date(earliestWindowCloses)) : null;
@@ -1817,7 +1899,7 @@ function ChallengeDetailPage() {
             <div style={cardHeadingStyle}>Regras do jogo</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={ruleLineStyle}>📸 1 foto por dia, dentro do dia</div>
-              <div style={ruleLineStyle}>🗳️ A turma valida em até 24h</div>
+              <div style={ruleLineStyle}>🗳️ A turma valida até as 23:59 do dia</div>
               <div style={ruleLineStyle}>🏆 Quem mais cumprir leva o prêmio</div>
               <div style={ruleLineStyle}>🤝 Empate divide entre os líderes</div>
             </div>
@@ -1843,6 +1925,9 @@ function ChallengeDetailPage() {
           <div style={infoCardStyle}>
             <div style={cardHeadingStyle}>Sua sequência</div>
             <StreakGrid streak={myStreak} />
+            <div style={{ marginTop: 12 }}>
+              <EvidenceDayList streak={myStreak} startsAt={challenge.startsAt} />
+            </div>
           </div>
         </div>
 
