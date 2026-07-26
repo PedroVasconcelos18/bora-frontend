@@ -26,6 +26,14 @@ const CELL_CONFIG: Record<StreakCellState, CellConfig> = {
   futuro: { bg: 'transparent', color: 'var(--muted)', glyph: '', border: '1px dashed var(--line)' },
 };
 
+const CELL_STATE_LABEL: Record<StreakCellState, string> = {
+  cumprido: 'cumprido',
+  falhou: 'falhou',
+  hoje: 'é hoje',
+  pending: 'em votação',
+  futuro: 'a seguir',
+};
+
 interface StreakGridProps {
   streak: StreakCellState[];
 }
@@ -46,9 +54,14 @@ export function StreakGrid({ streak }: StreakGridProps) {
       >
         {streak.map((state, idx) => {
           const config = CELL_CONFIG[state];
+          // Sem rótulo, a célula não diz QUAL dia representa — o número vai no
+          // title/aria-label (a leitura explícita fica na EvidenceDayList).
+          const dayLabel = `Dia ${idx + 1} de ${streak.length} — ${CELL_STATE_LABEL[state]}`;
           return (
             <div
               key={idx}
+              title={dayLabel}
+              aria-label={dayLabel}
               style={{
                 width: 34,
                 height: 34,
