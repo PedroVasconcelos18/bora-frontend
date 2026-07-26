@@ -3,13 +3,6 @@ import { EvidenceStatusBadge, type EvidenceStatus } from './EvidenceStatusBadge'
 
 const R2_PUBLIC_BASE_URL: string = import.meta.env.VITE_R2_PUBLIC_BASE_URL ?? '';
 
-// VOTE-02: the vote window is a fixed 24h from posting (see
-// evidences.service.ts's VOTE_WINDOW_MS). The votable-evidence list (Plan
-// 03's VotableEvidence) deliberately omits a separate postedAt field, so the
-// "postou há Xh" meta is derived from windowClosesAt - 24h rather than
-// requiring a backend change for this frontend-only plan.
-const VOTE_WINDOW_MS = 24 * 60 * 60 * 1000;
-
 export type VoteValue = 'SIM' | 'NAO';
 
 export interface VoteCardEvidence {
@@ -17,6 +10,13 @@ export interface VoteCardEvidence {
   authorName: string;
   objectKey: string;
   windowClosesAt: string;
+  /**
+   * Instante real da postagem, vindo do backend. Antes o card derivava isso de
+   * `windowClosesAt − 24h`; quando a janela passou a fechar às 23:59 do próprio
+   * dia (item G), a conta virou ficção — evidência postada há 1 minuto aparecia
+   * como "postou há 3h".
+   */
+  postedAt: string;
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
   hasVoted: boolean;
   /** Item I: como o próprio usuário votou (verde=SIM / coral=NAO). */
@@ -33,12 +33,20 @@ function evidenceStatusToBadge(status: VoteCardEvidence['status']): EvidenceStat
   return status === 'PENDING' ? 'SENT' : status;
 }
 
-/** "postou há Xh" meta text, derived from windowClosesAt (see module note above). */
-function formatPostedMeta(windowClosesAt: string): string {
-  const closesAtMs = new Date(windowClosesAt).getTime();
-  const postedAtMs = closesAtMs - VOTE_WINDOW_MS;
-  const hoursAgo = Math.max(0, Math.round((Date.now() - postedAtMs) / (60 * 60 * 1000)));
-  return hoursAgo <= 0 ? 'postou agora' : `postou há ${hoursAgo}h`;
+/**
+ * "postou há Xmin/Xh" a partir do instante real de postagem. Exportada pra ser
+ * testável — a versão anterior chutava o horário e errava por horas.
+ */
+export function formatPostedMeta(postedAt: string, now: number = Date.now()): string {
+  const elapsedMs = now - new Date(postedAt).getTime();
+  const minutesAgo = Math.floor(elapsedMs / 60000);
+
+  if (minutesAgo < 1) return 'postou agora';
+  if (minutesAgo < 60) return `postou há ${minutesAgo}min`;
+
+  const hoursAgo = Math.floor(minutesAgo / 60);
+  if (hoursAgo < 24) return `postou há ${hoursAgo}h`;
+  return 'postou ontem';
 }
 
 /**
@@ -58,7 +66,9 @@ export function VoteCard({ evidence, isVoting, onVote }: VoteCardProps) {
     .toUpperCase();
   const thumbnailUrl = `${R2_PUBLIC_BASE_URL}/${encodeURIComponent(evidence.objectKey)}`;
   const isResolved = evidence.status !== 'PENDING';
-  const showHeaderVotedBadge = evidence.hasVoted && !isResolved;
+  // O voto do próprio usuário nunca foi segredo (item I) — segue visível também
+  // depois que a janela fecha, ao lado do resultado.
+  const showHeaderVotedBadge = evidence.hasVoted;
 
   return (
     <div style={cardShellStyle}>
@@ -66,7 +76,7 @@ export function VoteCard({ evidence, isVoting, onVote }: VoteCardProps) {
         <div style={avatarStyle}>{initials}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={nameStyle}>{evidence.authorName}</div>
-          <div style={metaStyle}>{formatPostedMeta(evidence.windowClosesAt)}</div>
+          <div style={metaStyle}>{formatPostedMeta(evidence.postedAt)}</div>
         </div>
         {showHeaderVotedBadge && (
           <span style={votedBadgeStyleFor(evidence.myVote)}>{votedBadgeLabel(evidence.myVote)}</span>
@@ -75,7 +85,7 @@ export function VoteCard({ evidence, isVoting, onVote }: VoteCardProps) {
 
       {!isResolved && (
         <p style={hiddenVotesCaptionStyle}>
-          Os votos ficam ocultos até a janela de 24h fechar.
+          Os votos ficam ocultos até a janela fechar, às 23:59 — ou antes, se a turma toda votar.
         </p>
       )}
 
@@ -86,8 +96,15 @@ export function VoteCard({ evidence, isVoting, onVote }: VoteCardProps) {
       />
 
       {isResolved ? (
-        <div style={{ marginTop: 10 }}>
+        /* A janela do dia fecha COM o resultado: o card permanece na lista
+           depois de resolvido (early-close ou 23:59) em vez de sumir. */
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <EvidenceStatusBadge status={evidenceStatusToBadge(evidence.status)} />
+          <span style={resolvedCaptionStyle}>
+            {evidence.status === 'ACCEPTED'
+              ? 'Votação encerrada — a turma validou o dia.'
+              : 'Votação encerrada — a turma não validou o dia.'}
+          </span>
         </div>
       ) : (
         !evidence.hasVoted && (
@@ -260,6 +277,12 @@ function votedBadgeLabel(myVote: VoteValue | null): string {
   if (myVote === 'NAO') return 'Votei: não rolou';
   return '✓ Já votei';
 }
+
+const resolvedCaptionStyle: React.CSSProperties = {
+  fontSize: '0.78rem',
+  color: 'var(--muted)',
+  fontWeight: 600,
+};
 
 const hiddenVotesCaptionStyle: React.CSSProperties = {
   fontSize: '0.72rem',
