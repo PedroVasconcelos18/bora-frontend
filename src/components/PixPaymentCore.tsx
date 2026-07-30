@@ -83,6 +83,23 @@ export function resolveChargeRequest(args: {
 export const pixChargeCacheKey = (token: string) => `bora.pix-charge.${token}`;
 
 /**
+ * Namespaced session-storage key for a CHALLENGE's cached charge (the
+ * `challengeId` entry path — creator paying their own entry, or anyone
+ * reopening the pay screen after the invite token is long gone).
+ *
+ * COLLISION SAFETY, by construction rather than by luck: the token key is
+ * `bora.pix-charge.` + token and this one is `bora.pix-charge-challenge.` +
+ * challengeId. The two prefixes diverge at the character right after
+ * `bora.pix-charge` (`.` vs `-`), so NO token value — not even the literal
+ * string `challenge.abc` — can ever produce a key equal to a challenge key.
+ * Cross-user safety is not handled by the key at all: the stored record
+ * carries the `userId` and the reader rejects a mismatch, exactly as the
+ * token cache already does.
+ */
+export const pixChargeChallengeCacheKey = (challengeId: string) =>
+  `bora.pix-charge-challenge.${challengeId}`;
+
+/**
  * The browser's session storage, or null when it does not exist (node/vitest)
  * or is unreachable (Safari private mode throws on access).
  *
@@ -127,9 +144,24 @@ export function readCachedCharge(
   userId: string,
   store: Storage | null = getStore(),
 ): ChargeResult | null {
+  return readByKey(pixChargeCacheKey(token), userId, store);
+}
+
+/** writeCachedCharge — the ONLY writer. Silent no-op with no store or on a quota throw. */
+export function writeCachedCharge(
+  token: string,
+  userId: string,
+  charge: ChargeResult,
+  store: Storage | null = getStore(),
+): void {
+  writeByKey(pixChargeCacheKey(token), userId, charge, store);
+}
+
+/** Shared reader. Never throws; every failure mode collapses to null. */
+function readByKey(key: string, userId: string, store: Storage | null): ChargeResult | null {
   if (!store) return null;
   try {
-    const raw = store.getItem(pixChargeCacheKey(token));
+    const raw = store.getItem(key);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!isCachedRecord(parsed)) return null;
@@ -140,19 +172,105 @@ export function readCachedCharge(
   }
 }
 
-/** writeCachedCharge — the ONLY writer. Silent no-op with no store or on a quota throw. */
-export function writeCachedCharge(
-  token: string,
+/** Shared writer. Silent no-op with no store or on a quota throw. */
+function writeByKey(
+  key: string,
+  userId: string,
+  charge: ChargeResult,
+  store: Storage | null,
+): void {
+  if (!store) return;
+  try {
+    store.setItem(key, JSON.stringify({ userId, charge }));
+  } catch {
+    /* quota / private mode — the cache is an optimisation, never a hard dependency */
+  }
+}
+
+/**
+ * isChargeLive — a cached QR is only worth putting back on screen while it is
+ * still payable. `expiresAt` is the PSP's own expiry (the backend persists the
+ * value Mercado Pago was given as `date_of_expiration`, it does not recompute
+ * it), so this is the same instant the bank app will enforce.
+ *
+ * An unparseable `expiresAt` counts as NOT live: falling through costs one
+ * request that the backend now answers idempotently, whereas trusting it would
+ * park the user on a dead QR with no way forward.
+ */
+export function isChargeLive(charge: ChargeResult, now: number = Date.now()): boolean {
+  const expiresAtMs = new Date(charge.expiresAt).getTime();
+  if (Number.isNaN(expiresAtMs)) return false;
+  return expiresAtMs > now;
+}
+
+/**
+ * readCachedChallengeCharge — the `challengeId`-path reader.
+ *
+ * Same record shape, same userId guard as the token cache, plus an expiry
+ * check. The expiry check is deliberately NOT applied to the token path:
+ * there, falling through re-POSTs `accept-and-pay` against a token that has
+ * already been consumed, which answers 404 and paints "convite já usado" over
+ * a charge that merely needs regenerating. On this path falling through is
+ * both safe and correct — `/participants/me/pay` reuses a live PENDING row and
+ * mints a fresh one when there is none.
+ */
+export function readCachedChallengeCharge(
+  challengeId: string,
+  userId: string,
+  store: Storage | null = getStore(),
+  now: number = Date.now(),
+): ChargeResult | null {
+  const charge = readByKey(pixChargeChallengeCacheKey(challengeId), userId, store);
+  if (!charge) return null;
+  return isChargeLive(charge, now) ? charge : null;
+}
+
+/** writeCachedChallengeCharge — the ONLY writer of the challenge-keyed entry. */
+export function writeCachedChallengeCharge(
+  challengeId: string,
   userId: string,
   charge: ChargeResult,
   store: Storage | null = getStore(),
 ): void {
-  if (!store) return;
-  try {
-    store.setItem(pixChargeCacheKey(token), JSON.stringify({ userId, charge }));
-  } catch {
-    /* quota / private mode — the cache is an optimisation, never a hard dependency */
+  writeByKey(pixChargeChallengeCacheKey(challengeId), userId, charge, store);
+}
+
+/**
+ * resolveMountCharge — the WHOLE mount decision, as one pure function.
+ *
+ * Returns the charge to put back on screen, or null meaning "no cached charge
+ * is usable, the caller must request one". The mount effect has exactly one
+ * branch that fires a request, and it is `=== null` — so pinning this function
+ * pins the zero-extra-request property that the effect itself cannot express
+ * in a testable way.
+ *
+ * Order matters: the token entry wins when one exists, because it is the entry
+ * this exact invite flow wrote. Only on a miss do we consult the challenge
+ * entry — and hitting it while a token is present is still the right answer:
+ * a live charge for this challenge means the user is already a participant, so
+ * the token is dead anyway and re-POSTing it would only earn a 404.
+ */
+export function resolveMountCharge(args: {
+  userId: string;
+  token?: string;
+  challengeId?: string;
+  store?: Storage | null;
+  now?: number;
+}): ChargeResult | null {
+  const store = args.store === undefined ? getStore() : args.store;
+  const now = args.now ?? Date.now();
+
+  if (args.token) {
+    const cached = readCachedCharge(args.token, args.userId, store);
+    if (cached) return cached;
   }
+
+  if (args.challengeId) {
+    const cached = readCachedChallengeCharge(args.challengeId, args.userId, store, now);
+    if (cached) return cached;
+  }
+
+  return null;
 }
 
 /**
@@ -275,9 +393,15 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
       tokenSpentRef.current = true;
       setCharge(data);
       setPhase('idle');
-      // The ONLY writer of the durable cache. Without this line the mount
+      // The ONLY writers of the durable cache. Without these lines the mount
       // hydrate below has nothing to read and the whole remount fix is inert.
-      if (token && user) writeCachedCharge(token, user.id, data);
+      if (user) {
+        if (token) writeCachedCharge(token, user.id, data);
+        // Keyed off the RESPONSE's challengeId, not the URL param: the invite
+        // path has no `challengeId` in the URL yet still produces a charge that
+        // a later `?challengeId=` mount must be able to find.
+        if (data.challengeId) writeCachedChallengeCharge(data.challengeId, user.id, data);
+      }
     },
     onError: (err: Error) => {
       // ALREADY-CONSUMED INVITE, not a payment failure: the backend rejected
@@ -303,7 +427,7 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
   const isInviteConsumed = phase === 'invite-consumed';
 
   // Fire the initial charge exactly once on mount — but ONLY after checking the
-  // durable per-token cache first.
+  // durable session cache first, on BOTH entry paths (token and challengeId).
   //
   // THE EARLY RETURN BELOW IS THE ZERO-EXTRA-POST GUARANTEE. `firedOnce` is a
   // per-mount ref, so it dies with the component: a browser Back→Forward onto
@@ -313,20 +437,32 @@ export function usePixPayment({ challengeId: challengeIdParam, token }: UsePixPa
   // session cache restores the real charge (QR, countdown, polling all key off
   // it) with zero network writes, which makes revisiting the autopay URL inert
   // by construction. No history rewriting needed; the user's live QR survives.
+  //
+  // The `challengeId` path gets the same treatment as defence in depth. The
+  // authoritative guard is the BACKEND (`createCashIn` refuses a second charge
+  // and reuses a live PENDING row); this only stops the pointless request from
+  // leaving the browser at all, and keeps the QR on screen without a round trip.
+  //
+  // `tokenSpentRef` is set on either hit: a cached charge means this person is
+  // already a participant, so the invite token — if there even is one — is
+  // spent, and every later regenerate belongs on the participant path. With no
+  // token it is inert (resolveChargeRequest already routes there).
   useEffect(() => {
     if (!user || firedOnce.current) return;
     if (!challengeIdParam && !token) return;
     firedOnce.current = true;
 
-    if (token) {
-      const cached = readCachedCharge(token, user.id);
-      if (cached) {
-        chargeRef.current = cached;
-        tokenSpentRef.current = true;
-        setCharge(cached);
-        setPhase('idle');
-        return; // <- no mutate(). No POST. No second Mercado Pago charge.
-      }
+    const cached = resolveMountCharge({
+      userId: user.id,
+      token,
+      challengeId: challengeIdParam,
+    });
+    if (cached) {
+      chargeRef.current = cached;
+      tokenSpentRef.current = true;
+      setCharge(cached);
+      setPhase('idle');
+      return; // <- no mutate(). No POST. No second Mercado Pago charge.
     }
 
     chargeMutation.mutate(undefined);
