@@ -152,17 +152,40 @@ export function derivePushCardState(input: DerivePushCardStateInput): PushCardSt
 }
 
 /**
+ * getBrowserSubscriptionDetails — reads the EXISTING registration's current
+ * subscription without ever creating one, returning both the endpoint and
+ * its two encryption keys. Added (Rule 2) alongside `getBrowserEndpoint`
+ * because the Discretion #4 self-heal direction "browser has it, server
+ * doesn't" needs the full re-registration body (`POST /push/subscriptions`
+ * requires `keys.p256dh`/`keys.auth`, not just `endpoint`) — a bare endpoint
+ * string is not enough to silently re-register a subscription the server
+ * pruned or lost.
+ */
+export async function getBrowserSubscriptionDetails(): Promise<{
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+} | null> {
+  if (!isPushSupported()) return null;
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) return null;
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) return null;
+
+  const json = subscription.toJSON() as { endpoint?: string; keys?: { p256dh: string; auth: string } };
+  if (!json.endpoint || !json.keys) return null;
+
+  return { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } };
+}
+
+/**
  * getBrowserEndpoint — reads the EXISTING registration's current
  * subscription without ever creating one. Uses `getRegistration()` (not
  * `.ready`, which awaits a registration that may never resolve) since this
  * is a passive read, not a subscribe attempt.
  */
 export async function getBrowserEndpoint(): Promise<string | null> {
-  if (!isPushSupported()) return null;
-  const registration = await navigator.serviceWorker.getRegistration();
-  if (!registration) return null;
-  const subscription = await registration.pushManager.getSubscription();
-  return subscription?.endpoint ?? null;
+  const details = await getBrowserSubscriptionDetails();
+  return details?.endpoint ?? null;
 }
 
 /**
