@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Bora">
+  <!-- Ícone maskable (PWA): fundo full-bleed (sem corner radius — a plataforma aplica
+       sua própria máscara circular/squircle, que recortaria cantos arredondados) com o
+       mesmo "B" do favicon.svg, escalado a ~64% ao redor do centro do canvas para caber
+       na safe zone maskable (círculo interno de ~80% que as plataformas garantem visível). -->
+  <rect width="64" height="64" fill="#2BD86B"/>
+  <path fill="#0B3B22" transform="translate(32 32) scale(0.64) translate(-32 -32)" d="M35.38 27.90V35.54H22.49V27.90ZM31.50 35.54 31.81 29.65Q37.32 29.65 40.95 30.84Q44.58 32.03 46.43 34.28Q48.28 36.54 48.28 39.86Q48.28 45.99 43.64 49.00Q39.01 52.00 30.44 52.00Q29.00 52.00 26.99 51.87Q24.99 51.75 22.92 51.41Q20.86 51.06 19.17 50.44Q15.72 49.12 15.72 45.87V16.63Q15.72 15.32 16.48 14.60Q17.23 13.88 18.42 13.44Q20.54 12.69 23.77 12.34Q26.99 12.00 30.31 12.00Q38.26 12.00 42.61 14.72Q46.96 17.45 46.96 23.02Q46.96 26.15 45.05 28.24Q43.14 30.34 39.64 31.37Q36.13 32.41 31.31 32.41L30.94 27.90Q33.63 27.90 34.85 26.90Q36.07 25.90 36.07 23.96Q36.07 22.27 34.66 21.26Q33.25 20.26 30.44 20.26Q29.50 20.26 28.28 20.33Q27.05 20.39 26.37 20.51V43.17Q27.24 43.42 28.65 43.52Q30.06 43.61 31.25 43.61Q33.75 43.61 35.41 42.58Q37.07 41.55 37.07 39.36Q37.07 37.29 35.66 36.41Q34.25 35.54 31.50 35.54Z"/>
+</svg>
