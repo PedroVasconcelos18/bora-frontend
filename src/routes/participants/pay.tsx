@@ -6,6 +6,7 @@ import { PixKeyInlineField } from '../../components/PixKeyInlineField';
 import { DisclaimerFooter } from '../../components/DisclaimerFooter';
 import { showToast } from '../../components/Toast';
 import { usePixPayment, CopiaECola } from '../../components/PixPaymentCore';
+import { PushActivationCard } from '../../components/PushActivationCard';
 
 interface PaySearch {
   challengeId?: string;
@@ -186,6 +187,9 @@ function PayPage() {
               ? '🚀 O desafio está no ar! Te levando pro dia 1...'
               : 'Aguardando o restante da turma pagar...'}
           </p>
+          <div style={{ marginTop: 20, textAlign: 'left' }}>
+            <PushActivationCard mode="invite" />
+          </div>
           {challengeId && (
             <div style={{ marginTop: 20 }}>
               <Link
