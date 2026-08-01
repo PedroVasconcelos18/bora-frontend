@@ -15,6 +15,8 @@ const TABS: SegmentedTab[] = [
 
 interface SegmentedTabsProps {
   children: (activeTab: SegmentedTabKey) => React.ReactNode;
+  /** Reports the active tab upward. Optional — every existing call site keeps working unchanged. */
+  onTabChange?: (activeTab: SegmentedTabKey) => void;
 }
 
 /**
@@ -23,7 +25,7 @@ interface SegmentedTabsProps {
  * no route change) per UI-SPEC. Container mirrors TabBar's active/inactive
  * pill language but with its own 14px container / 10px tab-button radii.
  */
-export function SegmentedTabs({ children }: SegmentedTabsProps) {
+export function SegmentedTabs({ children, onTabChange }: SegmentedTabsProps) {
   const [activeTab, setActiveTab] = useState<SegmentedTabKey>('hoje');
 
   return (
@@ -44,7 +46,10 @@ export function SegmentedTabs({ children }: SegmentedTabsProps) {
             <button
               key={tab.key}
               type="button"
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                setActiveTab(tab.key);
+                onTabChange?.(tab.key);
+              }}
               style={{
                 flex: 1,
                 padding: '8px 4px',

@@ -11,7 +11,8 @@ import { PendingInvitesCard } from '../../components/PendingInvitesCard';
 import { CopyableInviteLink } from '../../components/CopyableInviteLink';
 import { PixOverlay } from '../../components/PixOverlay';
 import { showToast } from '../../components/Toast';
-import { SegmentedTabs } from '../../components/SegmentedTabs';
+import { SegmentedTabs, type SegmentedTabKey } from '../../components/SegmentedTabs';
+import { PushActivationCard } from '../../components/PushActivationCard';
 import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
 import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
 import { RankingList, type RankingData } from '../../components/RankingList';
@@ -365,6 +366,12 @@ function ChallengeDetailPage() {
   // Tracks which evidence's card is mid-vote so only the tapped card shows
   // its buttons' loading state (not the whole list).
   const [votingEvidenceId, setVotingEvidenceId] = useState<string | null>(null);
+
+  // 11-08: tracks SegmentedTabs' active tab outside its render prop, so the
+  // push-activation card's suppression rule (insertion points 2 and 3 never
+  // both render) can be applied at this level. Initialised to the same
+  // default SegmentedTabs itself starts on.
+  const [activeSegment, setActiveSegment] = useState<SegmentedTabKey>('hoje');
 
   // CHALW-01/D-01/D-02/D-03: in-place panel state for the web desktop reflow
   // (default 3-column | votar | feed | ranking expanded panels). Not a new
@@ -963,7 +970,15 @@ function ChallengeDetailPage() {
           shown only once the challenge is ACTIVE. All three tabs are real. */}
       {challenge.status === 'ACTIVE' && (
         <div style={{ marginBottom: 16 }}>
-          <SegmentedTabs>
+          {/* 11-08 insertion point 2 (D-07): invites activation while the
+              habit is starting. Suppressed on the 'hoje' tab so it never
+              doubles up with insertion point 3 below. */}
+          {activeSegment !== 'hoje' && (
+            <div style={{ marginBottom: 16 }}>
+              <PushActivationCard mode="invite" />
+            </div>
+          )}
+          <SegmentedTabs onTabChange={setActiveSegment}>
             {(activeTab) => {
               if (activeTab === 'hoje') {
                 return (
@@ -980,6 +995,9 @@ function ChallengeDetailPage() {
                         void queryClient.invalidateQueries({ queryKey: ['ranking', challengeId] });
                       }}
                     />
+                    {/* 11-08 insertion point 3 (D-07): the only place that ever
+                        shows the active state and the off switch. */}
+                    <PushActivationCard mode="control" />
                     {/* Item L: a sequência resumida na grade + a lista dia a dia
                         numerada logo abaixo (Dia 1/30 ✓, Dia 2/30 ✕). */}
                     <div>
