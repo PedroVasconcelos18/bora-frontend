@@ -112,17 +112,6 @@ export function derivePreferencesSectionState(
   return 'interactive';
 }
 
-/**
- * shouldShowInactiveHelper — verdadeiro para `'off'` e `'ios-not-installed'`,
- * os dois estados em que a pessoa pode ajustar preferência mas nenhum
- * device está inscrito ainda. Evita a leitura "nada do que eu faço aqui
- * funciona" que o desacoplamento entre preferência (por usuário) e
- * inscrição (por device) do D12-07 cria.
- */
-export function shouldShowInactiveHelper(pushState: PushCardState): boolean {
-  return pushState === 'off' || pushState === 'ios-not-installed';
-}
-
 export const PREFERENCES_TOAST_ERROR =
   'Não deu pra salvar essa preferência agora. Tenta de novo em instantes.';
 

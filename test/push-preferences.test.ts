@@ -12,7 +12,6 @@ import { fileURLToPath } from 'node:url';
 import {
   PUSH_PREFERENCE_ROWS,
   derivePreferencesSectionState,
-  shouldShowInactiveHelper,
   BLOCKED_COPY,
   deriveDeviceRow,
   DEVICE_ROW_COPY,
@@ -101,17 +100,6 @@ describe('derivePreferencesSectionState', () => {
   it('denied and unsupported both block', () => {
     expect(derivePreferencesSectionState({ pushState: 'denied', isPreferencesLoading: false })).toBe('blocked');
     expect(derivePreferencesSectionState({ pushState: 'unsupported', isPreferencesLoading: false })).toBe('blocked');
-  });
-});
-
-describe('shouldShowInactiveHelper', () => {
-  it('is true only for off and ios-not-installed', () => {
-    expect(shouldShowInactiveHelper('off')).toBe(true);
-    expect(shouldShowInactiveHelper('ios-not-installed')).toBe(true);
-    expect(shouldShowInactiveHelper('reconciling')).toBe(false);
-    expect(shouldShowInactiveHelper('denied')).toBe(false);
-    expect(shouldShowInactiveHelper('on')).toBe(false);
-    expect(shouldShowInactiveHelper('unsupported')).toBe(false);
   });
 });
 
@@ -219,5 +207,30 @@ describe('hooks/usePushPreferences.ts — source contract (no DOM/testing-librar
   it('restores the previous cache value on error via setQueryData', () => {
     const onErrorBlock = hookSource.slice(hookSource.indexOf('onError:'));
     expect(onErrorBlock).toContain('setQueryData');
+  });
+});
+
+describe('components/NotificationPreferencesSection.tsx — source contract (no DOM/testing-library available)', () => {
+  const componentSource = readFileSync(
+    join(SRC_DIR, 'components', 'NotificationPreferencesSection.tsx'),
+    'utf-8',
+  );
+
+  it('consumes deriveDeviceRow', () => {
+    expect(componentSource).toContain('deriveDeviceRow');
+  });
+
+  it('uses DEVICE_ROW_COPY', () => {
+    expect(componentSource).toContain('DEVICE_ROW_COPY');
+  });
+
+  it('destructures subscribe and unsubscribe from the subscription hook', () => {
+    expect(componentSource).toMatch(/const\s*{[^}]*\bsubscribe\b[^}]*}\s*=\s*usePushSubscription\(\)/);
+    expect(componentSource).toMatch(/const\s*{[^}]*\bunsubscribe\b[^}]*}\s*=\s*usePushSubscription\(\)/);
+  });
+
+  it('reuses PreferenceToggle for the device row (exactly 2 mounts: device + the 9 type rows)', () => {
+    const matches = componentSource.match(/<PreferenceToggle/g) ?? [];
+    expect(matches.length).toBe(2);
   });
 });
