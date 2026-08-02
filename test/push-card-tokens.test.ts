@@ -2,7 +2,9 @@
  * push-card-tokens.test.ts — WEB-05 guardrail (Phase 5 D-17) for Phase 11's
  * push-activation files, extended in Phase 12 to also cover the per-type
  * push-preference files (`NotificationPreferencesSection.tsx`,
- * `push-preferences.ts`, `usePushPreferences.ts`).
+ * `push-preferences.ts`, `usePushPreferences.ts`), and extended a third time
+ * by quick 260802-fgr to cover the new challenge-entry invite modal
+ * (`PushInviteModal.tsx`, `push-invite-modal.ts`).
  *
  * Mirrors forbidden-vocab.test.ts's file-reading approach: read each file
  * these phases added under `src/`, and assert none contains a raw hex colour
@@ -31,6 +33,8 @@ const FILES_TO_SCAN = [
   join(SRC_DIR, 'components', 'NotificationPreferencesSection.tsx'),
   join(SRC_DIR, 'lib', 'push-preferences.ts'),
   join(SRC_DIR, 'hooks', 'usePushPreferences.ts'),
+  join(SRC_DIR, 'components', 'PushInviteModal.tsx'),
+  join(SRC_DIR, 'lib', 'push-invite-modal.ts'),
 ];
 
 describe('WEB-05 push-card token guardrail (Phase 5 D-17)', () => {
