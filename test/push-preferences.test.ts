@@ -14,7 +14,11 @@ import {
   derivePreferencesSectionState,
   shouldShowInactiveHelper,
   BLOCKED_COPY,
+  deriveDeviceRow,
+  DEVICE_ROW_COPY,
   type DerivePreferencesSectionStateInput,
+  type DeriveDeviceRowInput,
+  type DeviceRowState,
 } from '../src/lib/push-preferences';
 import type { NotificationType } from '../src/lib/notifications';
 import type { PushCardState } from '../src/lib/push';
@@ -108,6 +112,74 @@ describe('shouldShowInactiveHelper', () => {
     expect(shouldShowInactiveHelper('denied')).toBe(false);
     expect(shouldShowInactiveHelper('on')).toBe(false);
     expect(shouldShowInactiveHelper('unsupported')).toBe(false);
+  });
+});
+
+describe('deriveDeviceRow', () => {
+  const pushStates: PushCardState[] = ['reconciling', 'denied', 'unsupported', 'ios-not-installed', 'on', 'off'];
+
+  const expected: Record<
+    PushCardState,
+    { state: DeviceRowState; checked: boolean; disabledFixed: boolean | null; caption: string | null }
+  > = {
+    reconciling: { state: 'loading', checked: false, disabledFixed: true, caption: null },
+    denied: { state: 'blocked', checked: false, disabledFixed: true, caption: null },
+    unsupported: { state: 'blocked', checked: false, disabledFixed: true, caption: null },
+    'ios-not-installed': {
+      state: 'needs-install',
+      checked: false,
+      disabledFixed: true,
+      caption: DEVICE_ROW_COPY.captionNeedsInstall,
+    },
+    on: { state: 'on', checked: true, disabledFixed: null, caption: null },
+    off: { state: 'off', checked: false, disabledFixed: null, caption: DEVICE_ROW_COPY.captionOff },
+  };
+
+  it('produces the correct result for all 12 combinations (6 pushState x 2 isMutating)', () => {
+    for (const pushState of pushStates) {
+      for (const isMutating of [false, true]) {
+        const input: DeriveDeviceRowInput = { pushState, isMutating };
+        const result = deriveDeviceRow(input);
+        const want = expected[pushState];
+
+        expect(result.state, `pushState=${pushState} isMutating=${isMutating}`).toBe(want.state);
+        expect(result.checked, `pushState=${pushState} isMutating=${isMutating}`).toBe(want.checked);
+        expect(result.caption, `pushState=${pushState} isMutating=${isMutating}`).toBe(want.caption);
+
+        const wantDisabled = want.disabledFixed ?? isMutating;
+        expect(result.disabled, `pushState=${pushState} isMutating=${isMutating}`).toBe(wantDisabled);
+      }
+    }
+  });
+
+  it('checked is true only for on', () => {
+    for (const pushState of pushStates) {
+      const result = deriveDeviceRow({ pushState, isMutating: false });
+      expect(result.checked, pushState).toBe(pushState === 'on');
+    }
+  });
+
+  it('caption is non-null only for off and ios-not-installed', () => {
+    for (const pushState of pushStates) {
+      const result = deriveDeviceRow({ pushState, isMutating: false });
+      const shouldHaveCaption = pushState === 'off' || pushState === 'ios-not-installed';
+      expect(result.caption !== null, pushState).toBe(shouldHaveCaption);
+    }
+  });
+
+  it('isMutating never re-enables a fixed-disabled state (blocked/needs-install/loading)', () => {
+    for (const pushState of ['reconciling', 'denied', 'unsupported', 'ios-not-installed'] as PushCardState[]) {
+      expect(deriveDeviceRow({ pushState, isMutating: false }).disabled, pushState).toBe(true);
+      expect(deriveDeviceRow({ pushState, isMutating: true }).disabled, pushState).toBe(true);
+    }
+  });
+});
+
+describe('DEVICE_ROW_COPY', () => {
+  it('every string value is non-empty', () => {
+    for (const [key, value] of Object.entries(DEVICE_ROW_COPY)) {
+      expect(value.length, key).toBeGreaterThan(0);
+    }
   });
 });
 

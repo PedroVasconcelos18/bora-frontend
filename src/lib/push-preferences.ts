@@ -134,3 +134,81 @@ export const BLOCKED_COPY = {
   unsupportedHeading: 'Notificação push não é compatível com este navegador',
   unsupportedBody: 'Esse navegador não tem suporte a notificações push, então não tem o que ativar aqui.',
 };
+
+/**
+ * DeviceRowState — os 5 estados visuais da linha de inscrição do aparelho
+ * que passa a abrir a seção de preferências (quick 260801-v15).
+ */
+export type DeviceRowState = 'loading' | 'on' | 'off' | 'needs-install' | 'blocked';
+
+/**
+ * DEVICE_ROW_COPY — vocabulário da linha de device, mesma forma de
+ * `BLOCKED_COPY`. O glifo (📱) fica deliberadamente FORA de `EMOJI_BY_TYPE`
+ * (`lib/notifications.ts`): aquele mapa é vocabulário por TIPO de
+ * notificação, enquanto esta linha representa outro eixo inteiramente —
+ * o APARELHO — então ganha um glifo próprio, sem se misturar com os 9.
+ */
+export const DEVICE_ROW_COPY = {
+  emoji: '📱',
+  label: 'Notificações neste aparelho',
+  description: 'Liga e desliga o push aqui. Cada aparelho seu tem o próprio interruptor.',
+  captionOff:
+    'Nenhum aparelho ativo por aqui — os tipos abaixo só entram em ação depois que algum aparelho ativar.',
+  captionNeedsInstall: 'No iPhone, adicione o Bora à Tela de Início pra poder ativar por aqui.',
+};
+
+/** A view pronta que `NotificationPreferencesSection` renderiza pra linha de device. */
+export interface DeviceRowView {
+  state: DeviceRowState;
+  checked: boolean;
+  disabled: boolean;
+  caption: string | null;
+}
+
+export interface DeriveDeviceRowInput {
+  pushState: PushCardState;
+  isMutating: boolean;
+}
+
+/**
+ * deriveDeviceRow — PURA, no mesmo espírito de `derivePreferencesSectionState`:
+ * nada de `window`/`navigator`/API de permissão aqui, o estado de push já
+ * chega pronto via `usePushSubscription().state` (D12-09).
+ *
+ * Avaliada nesta ordem, porque a ordem é a decisão de produto:
+ * 1. `pushState === 'reconciling'` -> `'loading'` (carregar tem precedência
+ *    sobre bloquear — mesma regra que `derivePreferencesSectionState` já
+ *    aplica para a seção inteira);
+ * 2. `pushState === 'denied'` ou `'unsupported'` -> `'blocked'` (tratados de
+ *    forma idêntica porque push nunca chega nos dois — a mesma equivalência
+ *    que `PushActivationCard.tsx:41` e a seção de preferências já usam hoje);
+ * 3. `pushState === 'ios-not-installed'` -> `'needs-install'`;
+ * 4. `pushState === 'on'` -> `'on'`, `checked: true`, `disabled` segue
+ *    `isMutating` (evita um segundo toque em voo, T-v15-02);
+ * 5. `pushState === 'off'` -> `'off'`, `disabled` segue `isMutating`.
+ *
+ * `isMutating` NUNCA reabilita um estado já desabilitado por natureza
+ * (`blocked`/`needs-install`/`loading` seguem `disabled: true`
+ * independentemente do valor de `isMutating`).
+ */
+export function deriveDeviceRow(input: DeriveDeviceRowInput): DeviceRowView {
+  if (input.pushState === 'reconciling') {
+    return { state: 'loading', checked: false, disabled: true, caption: null };
+  }
+  if (input.pushState === 'denied' || input.pushState === 'unsupported') {
+    return { state: 'blocked', checked: false, disabled: true, caption: null };
+  }
+  if (input.pushState === 'ios-not-installed') {
+    return {
+      state: 'needs-install',
+      checked: false,
+      disabled: true,
+      caption: DEVICE_ROW_COPY.captionNeedsInstall,
+    };
+  }
+  if (input.pushState === 'on') {
+    return { state: 'on', checked: true, disabled: input.isMutating, caption: null };
+  }
+  // input.pushState === 'off'
+  return { state: 'off', checked: false, disabled: input.isMutating, caption: DEVICE_ROW_COPY.captionOff };
+}
