@@ -18,11 +18,8 @@ import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../component
 import { RankingList, type RankingData } from '../../components/RankingList';
 import { StreakGrid, type StreakCellState } from '../../components/StreakGrid';
 import { EvidenceDayList } from '../../components/EvidenceDayList';
-import {
-  challengeDayNumber,
-  formatSaoPauloShortDate,
-  saoPauloDaysBetween,
-} from '../../lib/sao-paulo-day';
+import { challengeDayNumber, formatSaoPauloShortDate } from '../../lib/sao-paulo-day';
+import { formatWaitingDeadline } from '../../lib/waiting-deadline';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../../lib/breakpoints';
 
@@ -158,34 +155,6 @@ function formatLeaderNames(names: string[]): string {
   if (names.length === 1) return names[0];
   if (names.length === 2) return `${names[0]} e ${names[1]}`;
   return `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
-}
-
-// Feedback QA 5d: turn the raw deadline into a "tempo pra pagar" line —
-// "Faltam X dias pra todo mundo pagar (até DD/MM)". Pure/presentational.
-// Item D: quando o criador escolheu uma data de início (startsAt), a contagem
-// mostra quantos dias faltam PRA COMEÇAR o desafio; sem startsAt, cai no
-// comportamento antigo de prazo de pagamento (deadline).
-// Datas e contagens saem por dia-calendário de São Paulo (lib/sao-paulo-day):
-// formatar com o fuso do device mostrava a véspera da data escolhida, e contar
-// blocos de 24h corridas fazia a contagem discordar da grade do ranking.
-function formatPayDeadline(startsAtIso: string | null | undefined, deadlineIso: string): string {
-  const now = new Date();
-
-  if (startsAtIso) {
-    const startsAt = new Date(startsAtIso);
-    const dateLabel = formatSaoPauloShortDate(startsAt);
-    const daysLeft = saoPauloDaysBetween(now, startsAt);
-    if (daysLeft <= 0) return `O desafio começa hoje (${dateLabel}).`;
-    if (daysLeft === 1) return `Falta 1 dia pro desafio começar (${dateLabel}).`;
-    return `Faltam ${daysLeft} dias pro desafio começar (${dateLabel}).`;
-  }
-
-  const deadline = new Date(deadlineIso);
-  const dateLabel = formatSaoPauloShortDate(deadline);
-  const daysLeft = saoPauloDaysBetween(now, deadline);
-  if (daysLeft <= 0) return `O prazo pra todo mundo pagar terminou (${dateLabel}).`;
-  if (daysLeft === 1) return `Falta 1 dia pra todo mundo pagar (até ${dateLabel}).`;
-  return `Faltam ${daysLeft} dias pra todo mundo pagar (até ${dateLabel}).`;
 }
 
 const infoCardStyle = {
@@ -601,6 +570,10 @@ function ChallengeDetailPage() {
     ? challenge.participants.find((p) => p.user.id === user.id)
     : undefined;
   const isCreator = !!user && user.id === challenge.creatorId;
+  // Quick 260802-mjb: mesmo predicado que o bloco CANCELADO já usa (linha
+  // ~1720) pra decidir a cópia de reembolso, então as duas telas concordam
+  // sobre quem pagou.
+  const paidAmountLabel = myParticipant?.status === 'PAID' ? formatBRL(collab) : null;
 
   // Item B: roster da sala de espera com id/status pra permitir excluir aceito-
   // não-pago. Só o criador vê "Excluir", e só para quem não pagou e não é o
@@ -859,12 +832,23 @@ function ChallengeDetailPage() {
                   marginBottom: 13,
                 }}
               >
-                <div style={{ color: 'var(--green-ink)', fontWeight: 700, fontSize: '0.82rem' }}>
-                  ⏳ {formatPayDeadline(waitingRoom.startsAt, waitingRoom.deadline)}
-                </div>
-                <div style={{ color: 'var(--green-ink)', fontWeight: 600, fontSize: '0.78rem', marginTop: 3 }}>
-                  Os dias do desafio só começam a contar quando todo mundo pagar.
-                </div>
+                {(() => {
+                  const { headline, detail } = formatWaitingDeadline({
+                    deadlineIso: waitingRoom.deadline,
+                    startsAtIso: waitingRoom.startsAt,
+                    paidAmountLabel,
+                  });
+                  return (
+                    <>
+                      <div style={{ color: 'var(--green-ink)', fontWeight: 700, fontSize: '0.82rem' }}>
+                        ⏳ {headline}
+                      </div>
+                      <div style={{ color: 'var(--green-ink)', fontWeight: 600, fontSize: '0.78rem', marginTop: 3 }}>
+                        {detail}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {waitingRoom.participants.length > 0 && (
@@ -1202,14 +1186,25 @@ function ChallengeDetailPage() {
                         marginTop: 14,
                       }}
                     >
-                      <div style={{ color: 'var(--green-ink)', fontWeight: 700, fontSize: '0.85rem' }}>
-                        ⏳ {formatPayDeadline(waitingRoom.startsAt, waitingRoom.deadline)}
-                      </div>
-                      <div
-                        style={{ color: 'var(--green-ink)', fontWeight: 600, fontSize: '0.8rem', marginTop: 3 }}
-                      >
-                        Os dias do desafio só começam a contar quando todo mundo pagar.
-                      </div>
+                      {(() => {
+                        const { headline, detail } = formatWaitingDeadline({
+                          deadlineIso: waitingRoom.deadline,
+                          startsAtIso: waitingRoom.startsAt,
+                          paidAmountLabel,
+                        });
+                        return (
+                          <>
+                            <div style={{ color: 'var(--green-ink)', fontWeight: 700, fontSize: '0.85rem' }}>
+                              ⏳ {headline}
+                            </div>
+                            <div
+                              style={{ color: 'var(--green-ink)', fontWeight: 600, fontSize: '0.8rem', marginTop: 3 }}
+                            >
+                              {detail}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </>
                 ) : (
