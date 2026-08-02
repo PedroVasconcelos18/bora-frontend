@@ -1,12 +1,14 @@
 /**
- * push-preferences.test.ts — DOM-free vitest for `lib/push-preferences.ts`.
- * A second describe block (source-text contract for
- * `hooks/usePushPreferences.ts`, mirroring `test/service-worker.test.ts`'s
- * readFileSync + import.meta.url pattern) is appended by Plan 12-06's Task 2,
- * once that hook file exists.
+ * push-preferences.test.ts — DOM-free vitest for `lib/push-preferences.ts`,
+ * plus a source-text contract test for `hooks/usePushPreferences.ts`
+ * (mirrors `test/service-worker.test.ts`'s readFileSync + import.meta.url
+ * pattern, since this repo has no jsdom/testing-library to mount a hook with).
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   PUSH_PREFERENCE_ROWS,
   derivePreferencesSectionState,
@@ -16,6 +18,10 @@ import {
 } from '../src/lib/push-preferences';
 import type { NotificationType } from '../src/lib/notifications';
 import type { PushCardState } from '../src/lib/push';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const SRC_DIR = join(__dirname, '..', 'src');
 
 // Mesma ordem de declaração de `NotificationType` em `lib/notifications.ts:20-29`.
 const NOTIFICATION_TYPE_ORDER: NotificationType[] = [
@@ -112,5 +118,34 @@ describe('BLOCKED_COPY', () => {
 
   it('unsupportedBody explains there is nothing to activate', () => {
     expect(BLOCKED_COPY.unsupportedBody.length).toBeGreaterThan(0);
+  });
+});
+
+describe('hooks/usePushPreferences.ts — source contract (no DOM/testing-library available)', () => {
+  const hookSource = readFileSync(join(SRC_DIR, 'hooks', 'usePushPreferences.ts'), 'utf-8');
+
+  it('references the push-preferences query key', () => {
+    expect(hookSource).toContain("['push-preferences']");
+  });
+
+  it('calls both GET and POST /push/preferences', () => {
+    const matches = hookSource.match(/'\/push\/preferences'/g) ?? [];
+    expect(matches.length).toBe(2);
+  });
+
+  it('gates the query on the logged-in user', () => {
+    expect(hookSource).toContain('enabled: !!user');
+  });
+
+  it('drives mutation UI state from onMutate/onError/onSettled, not the mutation result snapshot', () => {
+    expect(hookSource).toContain('onMutate');
+    expect(hookSource).toContain('onError');
+    expect(hookSource).toContain('onSettled');
+    expect(hookSource).not.toMatch(/mutation\.isPending/);
+  });
+
+  it('restores the previous cache value on error via setQueryData', () => {
+    const onErrorBlock = hookSource.slice(hookSource.indexOf('onError:'));
+    expect(onErrorBlock).toContain('setQueryData');
   });
 });
