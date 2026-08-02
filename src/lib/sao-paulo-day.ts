@@ -25,6 +25,12 @@ const SP_SHORT_DATE_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   month: '2-digit',
 });
 
+const SP_CLOCK_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: SP_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
 /** Dia-calendário SP de um instante, como 'YYYY-MM-DD'. */
 export function saoPauloDay(date: Date = new Date()): string {
   return SP_DAY_FORMATTER.format(date);
@@ -33,6 +39,11 @@ export function saoPauloDay(date: Date = new Date()): string {
 /** 'DD/MM' no fuso de SP — correto mesmo num device fora do fuso. */
 export function formatSaoPauloShortDate(date: Date): string {
   return SP_SHORT_DATE_FORMATTER.format(date);
+}
+
+/** 'HH:MM' no fuso de SP — não no do device. */
+export function formatSaoPauloClockTime(date: Date): string {
+  return SP_CLOCK_TIME_FORMATTER.format(date);
 }
 
 /**

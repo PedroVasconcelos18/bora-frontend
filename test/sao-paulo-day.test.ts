@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
   saoPauloDay,
   formatSaoPauloShortDate,
+  formatSaoPauloClockTime,
   saoPauloDaysBetween,
   challengeDayNumber,
   challengeDayDates,
@@ -35,6 +36,12 @@ describe('formatSaoPauloShortDate', () => {
 
   it('não vira o dia por causa da hora da noite', () => {
     expect(formatSaoPauloShortDate(new Date('2026-07-30T02:00:00.000Z'))).toBe('29/07');
+  });
+});
+
+describe('formatSaoPauloClockTime', () => {
+  it('formata a hora no fuso de SP, não no do device (quick 260802-mjb)', () => {
+    expect(formatSaoPauloClockTime(new Date('2026-08-02T20:05:52.664Z'))).toBe('17:05');
   });
 });
 
