@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/auth.store';
 import { apiClient } from '../api/client';
 import { PixKeyCard } from '../components/PixKeyCard';
+import { NotificationPreferencesSection } from '../components/NotificationPreferencesSection';
 import { ChallengeCard } from '../components/ChallengeCard';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../lib/breakpoints';
@@ -216,6 +217,11 @@ function ProfilePage() {
         <PixKeyCard />
       </div>
 
+      {/* Phase 12 D12-08: per-type push preferences (mobile) */}
+      <div style={{ marginBottom: 16 }}>
+        <NotificationPreferencesSection />
+      </div>
+
       {/* Ghost "Sair da conta" button — AUTH-03 */}
       <button
         type="button"
@@ -396,6 +402,9 @@ function ProfilePage() {
 
           {/* T-i98 D-1/D-3: profile-level Pix key editor (web) */}
           <PixKeyCard />
+
+          {/* Phase 12 D12-08: per-type push preferences (web) */}
+          <NotificationPreferencesSection />
 
           {/* Ghost "Sair da conta" button — SAME handler + hover as mobile (D-19) */}
           <button

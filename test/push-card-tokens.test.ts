@@ -1,12 +1,14 @@
 /**
  * push-card-tokens.test.ts — WEB-05 guardrail (Phase 5 D-17) for Phase 11's
- * push-activation files.
+ * push-activation files, extended in Phase 12 to also cover the per-type
+ * push-preference files (`NotificationPreferencesSection.tsx`,
+ * `push-preferences.ts`, `usePushPreferences.ts`).
  *
  * Mirrors forbidden-vocab.test.ts's file-reading approach: read each file
- * this phase added under `src/`, and assert none contains a raw hex colour
+ * these phases added under `src/`, and assert none contains a raw hex colour
  * literal. `EvidenceStatusBadge.tsx`'s neutral state carries a grandfathered
  * raw hex (`#EEE9DD`) from before this guardrail existed — it is explicitly
- * NOT one of the files scanned here, and none of this phase's new files may
+ * NOT one of the files scanned here, and none of these phases' new files may
  * copy that hex in.
  */
 
@@ -26,6 +28,9 @@ const FILES_TO_SCAN = [
   join(SRC_DIR, 'components', 'PushActivationCard.tsx'),
   join(SRC_DIR, 'hooks', 'usePushSubscription.ts'),
   join(SRC_DIR, 'lib', 'push.ts'),
+  join(SRC_DIR, 'components', 'NotificationPreferencesSection.tsx'),
+  join(SRC_DIR, 'lib', 'push-preferences.ts'),
+  join(SRC_DIR, 'hooks', 'usePushPreferences.ts'),
 ];
 
 describe('WEB-05 push-card token guardrail (Phase 5 D-17)', () => {
