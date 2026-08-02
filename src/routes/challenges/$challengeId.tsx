@@ -12,7 +12,7 @@ import { CopyableInviteLink } from '../../components/CopyableInviteLink';
 import { PixOverlay } from '../../components/PixOverlay';
 import { showToast } from '../../components/Toast';
 import { SegmentedTabs } from '../../components/SegmentedTabs';
-import { PushActivationCard } from '../../components/PushActivationCard';
+import { PushInviteModal } from '../../components/PushInviteModal';
 import { EvidenceUploadCard, type TodayEvidence } from '../../components/EvidenceUploadCard';
 import { VoteCard, type VoteCardEvidence, type VoteValue } from '../../components/VoteCard';
 import { RankingList, type RankingData } from '../../components/RankingList';
@@ -964,18 +964,15 @@ function ChallengeDetailPage() {
           shown only once the challenge is ACTIVE. All three tabs are real. */}
       {challenge.status === 'ACTIVE' && (
         <div style={{ marginBottom: 16 }}>
-          {/* Insertion point 2 (D-07): invites push activation while the
-              habit is running. Renders on every tab now — quick 260801-v15
-              retired insertion point 3 (the control-mode card that used to
-              live inside the 'hoje' tab, below) and moved the liga/desliga
-              switch into the profile's notification-preferences section.
-              With nothing left to double up with, the per-tab suppression
-              that used to guard this mount is gone: whoever already
-              activated push still sees nothing here, because the card
-              itself returns null once the device is subscribed. */}
-          <div style={{ marginBottom: 16 }}>
-            <PushActivationCard mode="invite" />
-          </div>
+          {/* Insertion point 2 (D-07): the push invite is now an entry
+              modal (quick 260802-fgr) instead of the inline
+              PushActivationCard mount that used to sit here. The 3 display
+              rules (permanent per-device dismiss, per-visit close,
+              activation resolves itself) live in derivePushInviteModalState,
+              not in this route. Same scope as before — this ACTIVE + mobile
+              branch only — and the web branch of this route has never had
+              an invite point and still doesn't. */}
+          <PushInviteModal />
           <SegmentedTabs>
             {(activeTab) => {
               if (activeTab === 'hoje') {
