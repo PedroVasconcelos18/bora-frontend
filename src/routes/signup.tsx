@@ -10,6 +10,7 @@ import { FormField } from '../components/FormField';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { DisclaimerFooter } from '../components/DisclaimerFooter';
 import { consumePendingInvite } from '../lib/pendingInvite';
+import { saveBlogReturn, consumeBlogReturn } from '../lib/blogReturn';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../lib/breakpoints';
 
@@ -37,14 +38,32 @@ function SignupPage() {
   // user null -> set (setUser alone does not re-trigger any other effect,
   // so this is the only place that decides where to go next). Resumes a
   // pending invite token if one was saved before the auth redirect (GAP 2).
+  // Um leitor do blog chega aqui por `/login?redirect=/blog/...` (ver
+  // `bora_identidade_url_login()` no repo bora-blog). Guardar o destino na
+  // CHEGADA é o que faz ele sobreviver a um desvio por /signup — o parâmetro
+  // ficaria para trás na navegação entre as duas telas.
+  useEffect(() => {
+    saveBlogReturn(window.location.search);
+  }, []);
+
   useEffect(() => {
     if (user) {
       const pendingToken = consumePendingInvite();
       if (pendingToken) {
         void navigate({ to: '/invites/$token', params: { token: pendingToken } });
-      } else {
-        void navigate({ to: '/home' });
+        return;
       }
+
+      // O blog é WordPress no mesmo domínio, FORA do router — a volta tem que
+      // ser navegação de página inteira. `navigate` trataria /blog/... como
+      // rota da SPA e cairia no catch-all.
+      const voltarParaOBlog = consumeBlogReturn();
+      if (voltarParaOBlog) {
+        window.location.assign(voltarParaOBlog);
+        return;
+      }
+
+      void navigate({ to: '/home' });
     }
   }, [user, navigate]);
 
