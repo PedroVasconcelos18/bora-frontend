@@ -3,11 +3,11 @@
   "rewrites": [
     {
       "source": "/blog",
-      "destination": "https://ORIGEM-DO-BLOG-NAO-CONFIGURADA.invalid/"
+      "destination": "https://blog-production-ff8f.up.railway.app/"
     },
     {
       "source": "/blog/:caminho(.*)",
-      "destination": "https://ORIGEM-DO-BLOG-NAO-CONFIGURADA.invalid/:caminho"
+      "destination": "https://blog-production-ff8f.up.railway.app/:caminho"
     },
     { "source": "/((?!assets/).*)", "destination": "/app.html" }
   ]
