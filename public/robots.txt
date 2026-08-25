@@ -1,0 +1,12 @@
+# Sem este arquivo, /robots.txt cai no catch-all do vercel.json e devolve o HTML
+# do app — um buscador pede text/plain e recebe uma página. Não bloqueia
+# rastreio (regra nenhuma = tudo liberado), mas o Sitemap abaixo nunca seria
+# encontrado, e descoberta é o motivo de o blog viver em /blog e não num
+# subdomínio.
+#
+# ⚠️ O sitemap é gerado pelo Rank Math DENTRO do WordPress, e só é alcançável
+# pelo caminho público — a origem no Railway não deve aparecer aqui.
+User-agent: *
+Allow: /
+
+Sitemap: https://www.borajuntos.app/blog/sitemap_index.xml

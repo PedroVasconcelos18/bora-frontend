@@ -1,6 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    {
+      "source": "/blog",
+      "destination": "https://blog-production-ff8f.up.railway.app/"
+    },
+    {
+      "source": "/blog/:caminho(.*)",
+      "destination": "https://blog-production-ff8f.up.railway.app/:caminho"
+    },
     { "source": "/((?!assets/).*)", "destination": "/app.html" }
   ]
 }
