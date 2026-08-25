@@ -32,11 +32,6 @@ function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Single post-auth navigation authority: fires both when the user was
-  // already authenticated on mount AND when a fresh login transitions
-  // user null -> set (setUser alone does not re-trigger any other effect,
-  // so this is the only place that decides where to go next). Resumes a
-  // pending invite token if one was saved before the auth redirect (GAP 2).
   // Um leitor do blog chega aqui por `/login?redirect=/blog/...` (ver
   // `bora_identidade_url_login()` no repo bora-blog). Guardar o destino na
   // CHEGADA é o que faz ele sobreviver a um desvio por /signup — o parâmetro
@@ -45,6 +40,12 @@ function LoginPage() {
     saveBlogReturn(window.location.search);
   }, []);
 
+  // Single post-auth navigation authority: fires both when the user was
+  // already authenticated on mount AND when a fresh login transitions
+  // user null -> set (setUser alone does not re-trigger any other effect,
+  // so this is the only place that decides where to go next). Resumes a
+  // pending invite token if one was saved before the auth redirect (GAP 2),
+  // then a pending blog return, then falls back to /home.
   useEffect(() => {
     if (user) {
       const pendingToken = consumePendingInvite();
