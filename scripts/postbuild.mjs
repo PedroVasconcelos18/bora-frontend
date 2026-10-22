@@ -4,7 +4,7 @@
 // renomeamos o shell para dist/app.html e copiamos a LP (lp/) para a raiz do dist.
 // Em produção (Vercel), `/` serve a LP como arquivo real; as rotas do app
 // (/home, /login, ...) caem no rewrite para /app.html (ver vercel.json).
-import { copyFileSync, renameSync, existsSync } from 'node:fs';
+import { copyFileSync, renameSync, existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -20,10 +20,13 @@ if (!existsSync(appShell)) {
 // 1. Shell da SPA vira app.html (os assets referenciados são absolutos, /assets/...).
 renameSync(appShell, resolve(dist, 'app.html'));
 
-// 2. LP passa a ser o documento raiz. styles.css/script.js ficam na raiz do dist
-//    (a LP referencia ambos por caminho relativo, resolvendo em /styles.css e /script.js).
-for (const file of ['index.html', 'styles.css', 'script.js']) {
+// 2. LP passa a ser o documento raiz, com as páginas internas (/como-funciona,
+//    /contato, ...) e o 404.html ao lado. Tudo plano na raiz do dist: as páginas
+//    referenciam /styles.css e /script.js por caminho absoluto, porque o 404.html
+//    é servido em qualquer profundidade de URL.
+const files = readdirSync(lp);
+for (const file of files) {
   copyFileSync(resolve(lp, file), resolve(dist, file));
 }
 
-console.log('postbuild: shell → app.html; LP (index.html, styles.css, script.js) → raiz do dist');
+console.log(`postbuild: shell → app.html; LP (${files.join(', ')}) → raiz do dist`);

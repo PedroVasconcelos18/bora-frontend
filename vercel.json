@@ -9,6 +9,13 @@
       "source": "/blog/:caminho(.*)",
       "destination": "https://blog-production-ff8f.up.railway.app/:caminho"
     },
-    { "source": "/((?!assets/).*)", "destination": "/app.html" }
+    {
+      "source": "/:pagina(como-funciona|exemplos|transparencia|perguntas|contato)",
+      "destination": "/:pagina.html"
+    },
+    {
+      "source": "/(home|login|signup|forgot-password|notifications|profile|admin|challenges|invites|participants|reset-password)(/.*)?",
+      "destination": "/app.html"
+    }
   ]
 }

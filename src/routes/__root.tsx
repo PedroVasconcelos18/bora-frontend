@@ -76,6 +76,19 @@ function AppWithAuth() {
     }
   }, [data, isLoading, setUser, clearUser]);
 
+  // SEO: canonical auto-referente. O shell (app.html) é um só para todas as
+  // rotas, então o <link> é reescrito a cada navegação. Host fixo no www
+  // (o canônico do site), sem query string.
+  useEffect(() => {
+    let link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'canonical';
+      document.head.appendChild(link);
+    }
+    link.href = `https://www.borajuntos.app${routerState.location.pathname}`;
+  }, [routerState.location.pathname]);
+
   // GUARD effect (07-06) — the store (`user`/`status`), not the query cache,
   // is the single guard authority. Driven by resolveGuardRedirect (pure
   // policy module) so the guard's decision is unit-tested independent of

@@ -9,4 +9,5 @@
 User-agent: *
 Allow: /
 
+Sitemap: https://www.borajuntos.app/sitemap.xml
 Sitemap: https://www.borajuntos.app/blog/sitemap_index.xml
