@@ -8,6 +8,7 @@ import { ChallengeCard } from '../components/ChallengeCard';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { BREAKPOINTS } from '../lib/breakpoints';
 import { useLogout } from '../hooks/useLogout';
+import { DeleteAccountSection } from '../components/DeleteAccountSection';
 
 export const Route = createFileRoute('/profile')({
   component: ProfilePage,
@@ -248,6 +249,8 @@ function ProfilePage() {
       >
         Sair da conta
       </button>
+
+      <DeleteAccountSection />
     </main>
     );
   }
@@ -432,6 +435,8 @@ function ProfilePage() {
           >
             Sair da conta
           </button>
+
+          <DeleteAccountSection />
         </div>
 
         {/* RIGHT column — challenge history (D-17, read-only) */}

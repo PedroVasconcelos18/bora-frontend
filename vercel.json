@@ -10,7 +10,7 @@
       "destination": "https://blog-production-ff8f.up.railway.app/:caminho"
     },
     {
-      "source": "/:pagina(como-funciona|exemplos|transparencia|perguntas|contato)",
+      "source": "/:pagina(como-funciona|exemplos|transparencia|perguntas|contato|privacidade|termos|excluir-conta)",
       "destination": "/:pagina.html"
     },
     {
