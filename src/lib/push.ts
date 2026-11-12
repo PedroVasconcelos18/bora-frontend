@@ -94,8 +94,18 @@ export function isIOSDevice(): boolean {
  * standards-track `display-mode: standalone` media query, or the legacy
  * `navigator.standalone` flag Safari sets on an installed iOS PWA.
  */
+/**
+ * Inside the native shell (bora-mobile, Capacitor `appendUserAgent: "BoraApp"`).
+ * Its WebView has no Web Push, and the app is already "installed" — so it must
+ * never show the iOS "add to home screen" gate.
+ */
+export function isNativeApp(ua: string = typeof navigator === 'undefined' ? '' : navigator.userAgent): boolean {
+  return /\bBoraApp\b/.test(ua);
+}
+
 export function isStandaloneDisplay(): boolean {
   if (typeof window === 'undefined') return false;
+  if (isNativeApp()) return true;
   if (window.matchMedia?.('(display-mode: standalone)').matches) return true;
   return (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }

@@ -8,6 +8,7 @@ import {
 import { EMOJI_BY_TYPE } from '../lib/notifications';
 import { usePushSubscription } from '../hooks/usePushSubscription';
 import { usePushPreferences } from '../hooks/usePushPreferences';
+import { isNativeApp } from '../lib/push';
 
 /**
  * NotificationPreferencesSection — a seção "Notificações push" dentro de
@@ -36,6 +37,10 @@ import { usePushPreferences } from '../hooks/usePushPreferences';
 export function NotificationPreferencesSection() {
   const { state, isMutating, subscribe, unsubscribe } = usePushSubscription();
   const { preferences, isLoading, pendingType, setPreference } = usePushPreferences();
+
+  // Native app: no Web Push in the WebView — hide the section instead of
+  // telling the person their "browser" is incompatible.
+  if (isNativeApp()) return null;
 
   const sectionState = derivePreferencesSectionState({
     pushState: state,

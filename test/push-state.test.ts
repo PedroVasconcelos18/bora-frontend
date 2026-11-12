@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { urlBase64ToUint8Array, derivePushCardState, type DerivePushCardStateInput } from '../src/lib/push';
+import { urlBase64ToUint8Array, derivePushCardState, isNativeApp, type DerivePushCardStateInput } from '../src/lib/push';
 
 // A real VAPID public key fixture (Phase 11's actual, permanent public key —
 // D-12, non-secret). 65 raw bytes once decoded (uncompressed EC point: 0x04
@@ -143,5 +143,33 @@ describe('derivePushCardState', () => {
 
   it('returns off on a fully-supported, non-iOS browser with nothing activated', () => {
     expect(derivePushCardState(base)).toBe('off');
+  });
+});
+
+describe('isNativeApp (casca Capacitor: appendUserAgent "BoraApp")', () => {
+  const iosWebView =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 27_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+
+  it('detects the native shell by its user-agent suffix', () => {
+    expect(isNativeApp(`${iosWebView} BoraApp`)).toBe(true);
+  });
+
+  it('is false in a plain browser', () => {
+    expect(isNativeApp(iosWebView)).toBe(false);
+  });
+
+  it('inside the iOS app, push reads as unsupported — never the "add to home screen" install gate', () => {
+    expect(
+      derivePushCardState({
+        isChecking: false,
+        permission: 'default',
+        browserSubscribed: false,
+        serverHasEndpoint: false,
+        serverEnabled: false,
+        isSupported: false,
+        isIOS: true,
+        isStandalone: isNativeApp(`${iosWebView} BoraApp`),
+      }),
+    ).toBe('unsupported');
   });
 });
